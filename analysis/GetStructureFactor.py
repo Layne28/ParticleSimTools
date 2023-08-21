@@ -49,13 +49,13 @@ def main():
         sqlist.append(get_sq(traj['pos'], traj['edges'], q, eq_frac))
 
     #### Output S(q) to file in same directory as input h5 file ####
-    qx_arr = np.zeros(len(q))
-    qy_arr = np.zeros(len(q))
-    qz_arr = np.zeros(len(q))
-    qmag_arr = np.zeros(len(q))
-    sq_arr = np.zeros(len(q))
+    qx_arr = np.zeros(len(qlist))
+    qy_arr = np.zeros(len(qlist))
+    qz_arr = np.zeros(len(qlist))
+    qmag_arr = np.zeros(len(qlist))
+    sq_arr = np.zeros(len(qlist))
 
-    for i in range(len(q)):
+    for i in range(len(qlist)):
         qx_arr[i] = qlist[i][0]
         qy_arr[i] = qlist[i][1]
         qz_arr[i] = qlist[i][2]
