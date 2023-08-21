@@ -48,9 +48,22 @@ def main():
         print(q)
         sqlist.append(get_sq(traj['pos'], traj['edges'], q, eq_frac))
 
-    #### Output S(q) to file ####
-    print(sqlist)
-    return 0
+    #### Output S(q) to file in same directory as input h5 file ####
+    qx_arr = np.zeros(len(q))
+    qy_arr = np.zeros(len(q))
+    qz_arr = np.zeros(len(q))
+    qmag_arr = np.zeros(len(q))
+    sq_arr = np.zeros(len(q))
+
+    for i in range(len(q)):
+        qx_arr[i] = qlist[i][0]
+        qy_arr[i] = qlist[i][1]
+        qz_arr[i] = qlist[i][2]
+        qmag_arr[i] = np.linalg.norm(qlist[i])
+        sq_arr[i] = np.real(sqlist[i])
+        
+    outfile = '/'.join((myfile.split('/'))[:-1]) + '/sq.npz'
+    np.savez(outfile, qx=qx_arr, qy=qy_arr, qz=qz_arr, qmag=qmag_arr, sq=sq_arr)
 
 @numba.jit(nopython=True)
 def get_sq(pos, edges, q, eq_frac):
@@ -60,10 +73,11 @@ def get_sq(pos, edges, q, eq_frac):
     traj_len = pos.shape[0]
     eq_len = int(eq_frac*traj_len)
     for t in range(eq_len, traj_len):
-        print(t)
+        #print(t)
+        rho = 0. + 0.j
         for i in range(N):
-            for j in range(N):
-                sq += np.exp(-1j*np.dot(q, MeasurementTools.get_min_disp(pos[t,i,:], pos[t,j,:], edges)))
+            rho += np.exp(-1j*np.dot(q, pos[t,i,:]))
+        sq += rho * np.conjugate(rho)
     sq *= (1.0/(N*(traj_len-eq_len)))
 
     return sq
