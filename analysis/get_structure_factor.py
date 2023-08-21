@@ -29,7 +29,7 @@ def main():
 def load_traj(myfile):
     
     traj = h5py.File(myfile)
-
+    print('da')
     return 0
 
 main()
