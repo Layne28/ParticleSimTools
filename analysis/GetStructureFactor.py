@@ -12,11 +12,15 @@ import h5py
 import sys
 import numba
 
+import ParticleIO
+
 def main():
 
     myfile = sys.argv[1] #Expects .h5 input file
 
-    pos, edges, times = load_traj(myfile) #Extract data
+    traj = ParticleIO.load_traj(myfile) #Extract data
+
+    print(traj['pos'].shape)
 
     #Compute allowed wavevectors
 
@@ -26,10 +30,5 @@ def main():
     
     return 0
 
-def load_traj(myfile):
-    
-    traj = h5py.File(myfile)
-    print('da')
-    return 0
-
-main()
+if __name__ == '__main__':
+    main()
