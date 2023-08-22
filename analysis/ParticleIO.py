@@ -1,5 +1,4 @@
-#This script contains functions for dealing with
-#h5md trajectory I/O
+#This script contains functions for dealing with h5md trajectory I/O
 
 import h5py
 import numpy as np
