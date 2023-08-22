@@ -5,7 +5,7 @@
 #and each sum is over all N particles.
 
 #Input: Trajectory in h5md format (.h5)
-#Output: S(q) vs allowed wavevectors q in ??? format
+#Output: S(q) vs allowed wavevectors q in npz format
 
 import numpy as np
 import h5py
@@ -21,13 +21,13 @@ def main():
 
     myfile = sys.argv[1] #Expects .h5 input file
     traj = ParticleIO.load_traj(myfile) #Extract data
-    eq_frac = 0.2 #cut off first 20% of data (equilibration)
+    eq_frac = float(sys.argv[2]) #cut off first eq_frac*100% of data (equilibration)
 
     #### Compute allowed wavevectors ###
 
     #First get max magnitude and spacing.
-    dq = 2*np.pi/np.max(traj['edges'])
-    qmax = 2*np.pi #Assumes smallest relevant distance =1 for now
+    dq = np.pi/np.max(traj['edges'])
+    qmax = np.pi #Assumes smallest relevant distance =1 for now
     #qvals = np.arange(-qmax, qmax+dq, dq)
 
     #Generate a grid of wavevectors (w/ lattice constant dq),
@@ -73,7 +73,6 @@ def get_sq(pos, edges, q, eq_frac):
     traj_len = pos.shape[0]
     eq_len = int(eq_frac*traj_len)
     for t in range(eq_len, traj_len):
-        #print(t)
         rho = 0. + 0.j
         for i in range(N):
             rho += np.exp(-1j*np.dot(q, pos[t,i,:]))
