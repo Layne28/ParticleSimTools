@@ -1,0 +1,46 @@
+#System
+rho = 1.414213562373095
+a = 1.414213562373095
+dim = 3
+Nx = 4
+Ny = 4
+Nz = 4
+Lax = 4
+Lay = 4
+Laz = 4
+is_p_x = 1
+is_p_y = 1
+is_p_z = 1
+node_protocol = fcc
+spring_protocol = uniform
+l0 = 1.0
+K = 1.0
+kT = 0.0
+potential_type = fene
+drmax = 0.5
+do_cell_list = 0
+is_network = 1
+
+#Solver
+dt = 0.00025
+gamma = 1.0
+va = 1.000000
+do_subtract_com = 1
+
+#Observer
+output_dir = ./testdir
+network_freq = 100
+thermo_freq = 100
+
+#LabBench
+experiment = standard
+equil_steps = 1000
+production_steps = 0
+info_freq = 1000
+
+#Active Noise Generator
+nx = 32
+ny = 32
+nz = 32
+tau = 10.00000
+lambda = 3.000000

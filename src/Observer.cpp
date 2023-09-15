@@ -30,6 +30,10 @@ void Observer::open_h5md(System &theSys, std::string subdir)
     Group observables = file.createGroup("/observables");
     Group parameters = file.createGroup("/parameters");
 
+    //Subgroups of "parameters"
+    DataSet dim_value = file.createDataSet<int>("/parameters/dimensions", DataSpace::From(theSys.dim));
+    dim_value.write(theSys.dim);
+
     //Subgroups of "observables"
     Group potential_energy = file.createGroup("/observables/potential_energy");
 
@@ -37,9 +41,58 @@ void Observer::open_h5md(System &theSys, std::string subdir)
     Group all_particles = file.createGroup("particles/all");
     Group box = file.createGroup("/particles/all/box");
     Group position = file.createGroup("/particles/all/position");
-    //Group image = file.createGroup("/particles/all/image");
     Group velocity = file.createGroup("/particles/all/velocity");
     Group image = file.createGroup("/particles/all/image");
+
+    //Sugroups of "connectivity"
+    if(theSys.is_network){
+        if(theSys.can_bonds_break==0) {
+            //Get connectivity
+            int tot_num_springs = 0;
+            for(int i=0; i<theSys.N; i++) {
+                tot_num_springs += theSys.particles[i].get_num_springs();
+            }
+            std::vector<std::vector<int>> bond_list(tot_num_springs, std::vector<int>(2,0));
+            std::vector<int> bonds_to;
+            std::vector<int> bonds_from;
+
+            int cnt = 0;
+            for(int i=0; i<theSys.N; i++) {
+                for(int j=0; j<theSys.particles[i].get_num_springs(); j++) {
+                    bond_list[cnt][0] = theSys.particles[i].springs[j].node1->get_id();
+                    bond_list[cnt][1] = theSys.particles[i].springs[j].node2->get_id();
+                    cnt++;
+                }
+            }
+            std::sort(bond_list.begin(), bond_list.end(),
+                [](const std::vector<int>& a, const std::vector<int>& b) {
+                if (a[0] == b[0]) return a[1]<b[1];
+                else return a[0]<b[0];
+            });
+            bond_list.erase( unique( bond_list.begin(), bond_list.end() ), bond_list.end() );
+            for(int i=0; i<bond_list.size(); i++) {
+                bonds_from.push_back(bond_list[i][0]+1);
+                bonds_to.push_back(bond_list[i][1]+1);
+            }
+
+            //write connectivity to file
+            DataSet all_bonds_from = file.createDataSet<int>("/parameters/vmd_structure/bond_from", DataSpace::From(bonds_from));
+            all_bonds_from.write(bonds_from);
+
+            DataSet all_bonds_to = file.createDataSet<int>("/parameters/vmd_structure/bond_to", DataSpace::From(bonds_to));
+            all_bonds_to.write(bonds_to);
+
+            Reference myRef1 = Reference(file, all_particles);
+            Attribute bonds_to_group = all_bonds_to.createAttribute<Reference>("particles_group", DataSpace::From(myRef1));
+            bonds_to_group.write(myRef1);
+            Reference myRef2 = Reference(file, all_particles);
+            Attribute bonds_from_group = all_bonds_from.createAttribute<Reference>("particles_group", DataSpace::From(myRef2));
+            bonds_from_group.write(myRef2);
+        }
+        else {
+            std::cout << "i/o for changing connectivity not currently supported." << std::endl;
+        }
+    }
 
     //Assets of "box"
     std::vector<std::string> boundary_types(theSys.dim);

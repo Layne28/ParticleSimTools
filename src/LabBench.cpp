@@ -6,6 +6,7 @@ LabBench::LabBench(ParamDict& theParams, gsl_rng*& theGen) : sys(theParams, theG
     params = theParams;
     sys.set_obs(obs);
 
+    if(theParams.is_key("randomization_steps")) randomization_steps = std::stoi(theParams.get_value("randomization_steps"));
     if(theParams.is_key("equil_steps")) equil_steps = std::stoi(theParams.get_value("equil_steps"));
     if(theParams.is_key("production_steps")) production_steps = std::stoi(theParams.get_value("production_steps"));
     if(theParams.is_key("info_freq")) info_freq = std::stoi(theParams.get_value("info_freq"));
@@ -53,8 +54,49 @@ void LabBench::do_experiment(std::string expt)
 
 void LabBench::run_standard_experiment()
 {
-    std::cout << "Minimizing energy..." << std::endl;
-    sys.minimize_energy();
+    if(do_energy_minimize==1){
+        std::cout << "Minimizing energy..." << std::endl;
+        sys.minimize_energy();
+    }
+
+    if (randomization_steps>0) {
+        std::cout << "Randomizing positions..." << std::endl;
+        double kT0 = sys.kT;
+        double va0 = solver.va;
+        double dt0 = sys.dt;
+        std::string pot = sys.potential_type;
+        
+        //Set "high" temperature and no active noise
+        //to get random initial configuration
+        sys.kT = 0.5;
+        solver.va = 0.0;
+        sys.dt = 0.00025;
+        sys.potential_type = "wca";
+        std::cout << "kT: " << sys.kT << std::endl;;
+        std::cout << "va: " << solver.va << std::endl;
+        std::cout << "potential: " << sys.potential_type << std::endl;
+        std::cout << "dt: " << sys.dt << std::endl;;
+        this->run(this->randomization_steps, "/randomize", this->obs.particles_freq, this->obs.thermo_freq);
+
+        //reset parameters for production
+        sys.kT = kT0;
+        solver.va = va0;
+        sys.dt = dt0;
+        sys.potential_type = pot;
+
+        std::cout << "Resetting parameters: " << std::endl;
+        std::cout << "kT: " << sys.kT << std::endl;
+        std::cout << "va: " << solver.va << std::endl;
+        std::cout << "potential: " << sys.potential_type << std::endl;
+    }
+    
+    std::cout << "Equilibrating..." << std::endl;
+    this->run(this->equil_steps, "/equil", this->obs.particles_freq, this->obs.thermo_freq);
+
+    std::cout << "Doing production run..." << std::endl;
+    this->run(this->production_steps, "/prod", this->obs.particles_freq, this->obs.thermo_freq);
+}
+
 
     /*
     std::cout << "Testing grid" << std::endl;
@@ -81,35 +123,3 @@ void LabBench::run_standard_experiment()
     }
     std::cout << "passed" << std::endl;
     */
-
-    if (sys.particle_protocol=="lattice") {
-        std::cout << "Equilibrating..." << std::endl;
-        double kT0 = sys.kT;
-        double va0 = solver.va;
-        double dt0 = sys.dt;
-        std::string pot = sys.potential_type;
-        
-        //Set "high" temperature and no active noise
-        //to get random initial configuration
-        sys.kT = 0.5;
-        solver.va = 0.0;
-        sys.dt = 0.00025;
-        sys.potential_type = "wca";
-        std::cout << "kT: " << sys.kT << std::endl;;
-        std::cout << "va: " << solver.va << std::endl;
-        std::cout << "potential: " << sys.potential_type << std::endl;
-        std::cout << "dt: " << sys.dt << std::endl;;
-        this->run(this->equil_steps, "/equil", this->obs.particles_freq, this->obs.thermo_freq);
-
-        //reset parameters for production
-        sys.kT = kT0;
-        solver.va = va0;
-        sys.dt = dt0;
-        sys.potential_type = pot;
-    }
-    std::cout << "Doing production run..." << std::endl;
-    std::cout << "kT: " << sys.kT << std::endl;;
-    std::cout << "va: " << solver.va << std::endl;
-    std::cout << "potential: " << sys.potential_type << std::endl;
-    this->run(this->production_steps, "/prod", this->obs.particles_freq, this->obs.thermo_freq);
-}

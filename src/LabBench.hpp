@@ -12,7 +12,7 @@
 #include <string>
 
 #include "System.hpp"
-#include "ActiveSolver.hpp"
+#include "Solver.hpp"
 #include "Observer.hpp"
 #include "ParamDict.hpp"
 
@@ -22,13 +22,15 @@ public:
     ParamDict params;
     System sys;
     Observer obs;
-    ActiveSolver solver; //was Solver for passive
+    Solver solver;
     gsl_rng *rg;
 
     std::string experiment = "standard";
-    int equil_steps=0;
-    int production_steps=0;
+    int randomization_steps = 0;
+    int equil_steps = 0;
+    int production_steps = 0;
     int info_freq = 1;
+    int do_energy_minimize = 1;
 
     /*** Methods ***/
 

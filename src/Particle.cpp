@@ -4,20 +4,32 @@
 //TODO: write unit tests for object id/counter
 int Particle::counter = 0;
 
-Particle::Particle(int dim) {
+Particle::Particle(int dim, int is_an_aoup, double my_aoup_D0, double my_aoup_tau) {
     d = dim;
     pos.zeros(dim);
     old_pos.zeros(dim);
     vel.zeros(dim);
     id = Particle::counter;
     Particle::counter++;
+
+    is_aoup = is_an_aoup;
+    if(is_aoup==1){
+        self_prop_vel.zeros(dim);
+        aoup_D0 = my_aoup_D0;
+        aoup_tau = my_aoup_tau;
+    }
 }
 
 Particle::~Particle() {}
 
-
 int Particle::get_id() {
     return id;
+}
+
+int Particle::get_num_springs()
+{
+    if(!this->is_node) return 0;
+    else return this->springs.size();
 }
 
 arma::vec Particle::get_pos() {
@@ -29,6 +41,21 @@ bool Particle::is_equal(Particle &p){
         return true;
     }
     else {
+        return false;
+    }
+}
+
+bool Particle::has_connection(Particle &n)
+{
+    if (!n.is_node) return false;
+    else{
+        for (int i=0; i<(this->get_num_springs()); i++)
+        {
+            if (this->springs[i].node1->is_equal(n) || this->springs[i].node2->is_equal(n))
+            {
+                return true;
+            }
+        }
         return false;
     }
 }

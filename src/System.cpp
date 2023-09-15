@@ -18,9 +18,16 @@ System::System(ParamDict &theParams, gsl_rng *&the_rg) {
 
     particle_protocol = "zeros";
 
+    //These are temporary, won't need to be accessed again
+    //outside of constructor.
+    spring_protocol = "uniform";
+    l0 = 1.0;
+    K = 1.0;
+
     sigma = 1.0;
     epsilon = 1.0;
     rcut = 2.5;
+    drmax = 0.5;
 
     //Then assign from ParamDict if there
     do_paramdict_assign(theParams);
@@ -95,15 +102,14 @@ void System::do_paramdict_assign(ParamDict &theParams) {
     for(int i=0; i<dim; i++) {
         //Get box edges
         edges.push_back(10.0); //default value
-        if(i==0 && theParams.is_key("Lx")) edges[i] = std::stod(theParams.get_value("Lx")); //read in value
-        if(i==1 && theParams.is_key("Ly")) edges[i] = std::stod(theParams.get_value("Ly")); //read in value
-        if(i==2 && theParams.is_key("Lz")) edges[i] = std::stod(theParams.get_value("Lz")); //read in value
-
+        if(i==0 && theParams.is_key("Lx")) edges[i] = std::stod(theParams.get_value("Lx"));
+        if(i==1 && theParams.is_key("Ly")) edges[i] = std::stod(theParams.get_value("Ly")); 
+        if(i==2 && theParams.is_key("Lz")) edges[i] = std::stod(theParams.get_value("Lz")); 
         //Get whether each dimension is periodic
         is_periodic.push_back(1); //default value
-        if(i==0 && theParams.is_key("is_p_x")) is_periodic[i] = std::stoi(theParams.get_value("is_p_x")); //read in value
-        if(i==1 && theParams.is_key("is_p_y")) is_periodic[i] = std::stoi(theParams.get_value("is_p_y")); //read in value
-        if(i==2 && theParams.is_key("is_p_z")) is_periodic[i] = std::stoi(theParams.get_value("is_p_z")); //read in value
+        if(i==0 && theParams.is_key("is_p_x")) is_periodic[i] = std::stoi(theParams.get_value("is_p_x")); 
+        if(i==1 && theParams.is_key("is_p_y")) is_periodic[i] = std::stoi(theParams.get_value("is_p_y"));
+        if(i==2 && theParams.is_key("is_p_z")) is_periodic[i] = std::stoi(theParams.get_value("is_p_z"));
     }
 
     if(theParams.is_key("kT")) kT = std::stod(theParams.get_value("kT"));
@@ -116,8 +122,16 @@ void System::do_paramdict_assign(ParamDict &theParams) {
     if(theParams.is_key("rcut")) rcut = std::stod(theParams.get_value("rcut"));
     if(theParams.is_key("do_cell_list")) do_cell_list = std::stoi(theParams.get_value("do_cell_list"));
     if(theParams.is_key("do_neighbor_grid")) do_neighbor_grid = std::stoi(theParams.get_value("do_neighbor_grid"));
+    if(theParams.is_key("is_network")) is_network = std::stoi(theParams.get_value("is_network"));
+    if(theParams.is_key("can_bonds_break")) can_bonds_break = std::stoi(theParams.get_value("can_bonds_break"));
 
-    //Compute parameters that are inferred from other parameters
+    //For networks
+    if(theParams.is_key("spring_protocol")) spring_protocol = theParams.get_value("spring_protocol");
+    if(theParams.is_key("l0")) l0 = std::stod(theParams.get_value("l0"));
+    if(theParams.is_key("K")) K = std::stod(theParams.get_value("K"));
+    if(theParams.is_key("drmax")) drmax = std::stod(theParams.get_value("drmax"));
+
+    //Compute parameters that are derived parameters
     double volume = 1.0;
     for(int i=0; i<dim; i++){
         volume *= edges[i];
@@ -372,8 +386,20 @@ double System::get_wca_potential(double r, double sig, double eps) {
     else return 0;
 }
 
-//O(N^2) calculation of forces (w/o cell list)
+double System::get_harmonic_potential(double r, double K, double l0) {
 
+    return 0.5*K*(r-l0)*(r-l0);
+}
+
+double System::get_fene_potential(double r, double K, double l0, double dr) {
+
+    //check that r>dr
+    if (r<=l0-dr || r>=l0+dr) return 1e20; //TODO: is this a good idea?
+    else return -0.5*K*dr*dr*log(1-((r-l0)/dr)*((r-l0)/dr));
+}
+
+//O(N^2) calculation of forces (w/o cell list)
+//TODO: this could be sped up by not double-counting
 std::vector<arma::vec> System::get_forces() {
     
     if(do_cell_list==1) return get_forces_cell_list();
@@ -393,18 +419,47 @@ std::vector<arma::vec> System::get_forces() {
 arma::vec System::get_force(Particle &p1) {
     
     arma::vec force(dim, arma::fill::zeros);
-    
-    for (int j=0; j<N; j++) {
-        if (particles[j].get_id()!=p1.get_id()) {
-            double dist = get_dist(p1, particles[j]);
+
+    if (p1.is_node) {
+        for(int j=0; j<p1.get_num_springs(); j++) {
+
+            double K = p1.springs[j].get_stiffness();
+            double l0 = p1.springs[j].get_rest_length();
+
+            Particle *p2 = p1.springs[j].node2;
+            if(p1.is_equal(*p2)) p2 = p1.springs[j].node1;
+
+            arma::vec disp = get_disp_vec(p1, *p2);
+            double dist = get_dist(p1, *p2);
             if (dist<1e-15) throw std::runtime_error("ERROR: attempting to divide by zero in force calculation!");
-            if (dist<=rcut) {
-                arma::vec disp = get_disp_vec(p1, particles[j]);
-                if (potential_type=="lj"){
-                    force += get_lj_force(dist, disp, sigma, epsilon); 
-                }
-                else if(potential_type=="wca"){
-                    force += get_wca_force(dist, disp, sigma, epsilon); 
+
+            if (potential_type=="harmonic"){
+                force += get_harmonic_force(dist, disp, K, l0);
+            }
+            else if(potential_type=="fene"){
+                force += get_fene_force(dist, disp, K, l0, drmax);
+            }
+            else{
+                std::cout << "WARNING: potential type not recognized!" << std::endl;
+            }
+        }
+    }
+    else{
+        for (int j=0; j<N; j++) {
+            if (particles[j].get_id()!=p1.get_id()) {
+                double dist = get_dist(p1, particles[j]);
+                if (dist<1e-15) throw std::runtime_error("ERROR: attempting to divide by zero in force calculation!");
+                if (dist<=rcut) {
+                    arma::vec disp = get_disp_vec(p1, particles[j]);
+                    if (potential_type=="lj"){
+                        force += get_lj_force(dist, disp, sigma, epsilon); 
+                    }
+                    else if(potential_type=="wca"){
+                        force += get_wca_force(dist, disp, sigma, epsilon); 
+                    }
+                    else{
+                        std::cout << "WARNING: potential type not recognized!" << std::endl;
+                    }
                 }
             }
         }
@@ -487,7 +542,6 @@ std::vector<arma::vec> System::get_forces_cell_list() {
     return forces;
 }
 
-
 arma::vec System::get_lj_force(double r, arma::vec rvec, double sig, double eps) {
 
     double rat = sig/r;
@@ -510,6 +564,19 @@ arma::vec System::get_wca_force(double r, arma::vec rvec, double sig, double eps
     else return force;
 }
 
+arma::vec System::get_harmonic_force(double r, arma::vec rvec, double K, double l0) {
+
+    return -K*(r-l0)*rvec/r;
+}
+
+arma::vec System::get_fene_force(double r, arma::vec rvec, double K, double l0, double dr) {
+
+    arma::vec big_force = arma::ones(dim)*1e20; //TODO: is this a good idea?
+
+    if(r<=l0-dr || r>=l0+dr) return big_force;
+    else return -K*(r-l0)/(1-((r-l0)/dr)*((r-l0)/dr))*rvec/r;
+}
+
 double System::minimize_energy(double tol) {
     std::cout << "Starting energy: " << get_energy() << std::endl;
     double diff_norm = 1.0; //normalized energy difference bt current and previous steps
@@ -518,6 +585,7 @@ double System::minimize_energy(double tol) {
 
     for(int t=0; t<max_iter; t++) {
         double e_old = get_energy();
+        if (e_old<1e-10) e_old = 1e-10;
         
         //Get forces
         std::vector<arma::vec> potential_forces = get_forces();
@@ -531,6 +599,7 @@ double System::minimize_energy(double tol) {
         }
         apply_pbc();
         double e_new = get_energy();
+        if (e_new<1e-10) e_new = 1e-10;
         diff_norm = fabs((e_new-e_old)/e_old);
         if (diff_norm<tol){
             std::cout << "Minimized energy after " << (t+1) << " iterations." << std::endl;
