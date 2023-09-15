@@ -24,7 +24,8 @@ public:
     //For now we assume NVT ensemble
     int N;      //No. of particles
     double rho; //density
-    double phi; //packing fraction
+    double a;   //lattice constant
+    double phi = -1.0; //packing fraction
     double kT;  //temperature
     int dim;    //no. of spatial dimensions
     double dt;  //timestep
@@ -47,6 +48,7 @@ public:
     std::vector<Particle> particles;     //all the particles in the system
     std::vector<std::vector<int>> image; //which periodic image each particle is in (starts at (0,0))
     std::vector<double> edges;           //box dimensions
+    std::vector<int> unit_cells;         //no. of unit cells in each direction (for lattice)
     std::vector<int> is_periodic;        //periodic or not in each dimension
 
     int do_cell_list = 1;     //whether to use the cell list for computing forces
@@ -76,6 +78,7 @@ public:
     //Make changes to System state
     void do_paramdict_assign(ParamDict &theParams);
     void do_particle_init();
+    void do_spring_init();
     void apply_pbc(); //apply periodic boundary conditions
     void zero_com(); //subtract center of mass from each particle position
     void set_obs(Observer &anObs);
@@ -88,8 +91,8 @@ public:
     double get_energy_neighbor_grid();
     double get_lj_potential(double r, double sig, double eps, double rc);
     double get_wca_potential(double r, double sig, double eps);
-    double get_harmonic_potential(double r, double K, double l0);
-    double get_fene_potential(double r, double K, double l0, double dr);
+    double get_harmonic_potential(double r, double KK, double ll0);
+    double get_fene_potential(double r, double KK, double ll0, double dr);
     std::vector<arma::vec> get_forces();
     std::vector<arma::vec> get_forces_cell_list();
     arma::vec get_force(Particle &p1);

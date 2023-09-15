@@ -36,6 +36,17 @@ arma::vec Particle::get_pos() {
     return pos;
 }
 
+void Particle::set_pos(arma::vec mypos) {
+    if(mypos.n_elem!=this->d){
+        std::cout << "Error: attempting to assign position with "
+        " wrong dimensonal vector." << std::endl;
+        exit(-1);
+    }
+    for(int k=0; k<this->d; k++){
+        this->pos[k] = mypos[k];
+    }
+}
+
 bool Particle::is_equal(Particle &p){
     if (this->id==p.id) {
         return true;

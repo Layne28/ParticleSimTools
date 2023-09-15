@@ -15,12 +15,33 @@ Solver::Solver(System &theSys, ParamDict &theParams, gsl_rng *&the_rg)
     if(theParams.is_key("va")) va = std::stod(theParams.get_value("va"));
     //Active noise generator will generate values with variance va^2
     theParams.add_entry("D", std::to_string(va*va)); 
+
+    //Set grid spacing
     double dee_x = theSys.edges[0]/int(std::stoi(theParams.get_value("nx")));
     //Set precision of dx
-    std::ostringstream out;
-    out.precision(15);
-    out << std::fixed << dee_x;
-    theParams.add_entry("dx", out.str());
+    std::ostringstream out_x;
+    out_x.precision(15);
+    out_x << std::fixed << dee_x;
+    theParams.add_entry("dx", out_x.str());
+
+    if(theSys.dim==2 || theSys.dim==3){
+        double dee_y = theSys.edges[1]/int(std::stoi(theParams.get_value("ny")));
+        //Set precision of dy
+        std::ostringstream out_y;
+        out_y.precision(15);
+        out_y << std::fixed << dee_y;
+        theParams.add_entry("dy", out_y.str());
+    }
+
+    if(theSys.dim==3){
+        double dee_z = theSys.edges[2]/int(std::stoi(theParams.get_value("nz")));
+        //Set precision of dz
+        std::ostringstream out_z;
+        out_z.precision(15);
+        out_z << std::fixed << dee_z;
+        theParams.add_entry("dz", out_z.str());
+    }
+    
     anGen = new Generator(theParams, the_rg);
     //Check that active noise gen. params are consistent with particle system
     if(fabs(anGen->Lx-theSys.edges[0])>1e-10) {
@@ -74,7 +95,7 @@ void Solver::update(System &theSys)
             update_self_prop_vel(theSys, i, dt);
         }
     }
-    
+    if(va>0.0) anGen->step(dt); //advance active noise in time
     theSys.apply_pbc();
     theSys.time++;
 }
@@ -141,7 +162,7 @@ void Solver::update_adaptive(System &theSys, double deet, int level)
                 update_self_prop_vel(theSys, i, deet);
             }
         }
-        anGen->step(deet); //advance active noise in time
+        if(va>0.0) anGen->step(deet); //advance active noise in time
         theSys.apply_pbc();
     }
 
@@ -233,7 +254,8 @@ std::vector<arma::vec> Solver::get_active_noise_forces(System &theSys, Generator
         for(int k=0; k<theSys.dim; k++){
             //TODO: This will need to be changed if the generator dx
             //is different for x,y,z
-            indices[k] = int((pos(k)+0.5*theSys.edges[k])/gen.dx);
+            indices[k] = int((pos(k)+0.5*theSys.edges[k])/gen.spacing[k]);
+            std::cout << indices[k] << std::endl;
         }
         for(int k=0; k<theSys.dim; k++){
             if(theSys.dim==1) active_forces[i](k) = xi(indices[0])(k).real();

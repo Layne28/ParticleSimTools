@@ -1,17 +1,12 @@
 #System
-rho = 1.414213562373095
-a = 1.414213562373095
-dim = 3
-Nx = 4
-Ny = 4
-Nz = 4
-Lax = 4
-Lay = 4
-Laz = 4
+rho = 1.0
+a = 1.0
+dim = 2
+Nx = 12
+Ny = 14
 is_p_x = 1
 is_p_y = 1
-is_p_z = 1
-node_protocol = fcc
+particle_protocol = triangular_lattice
 spring_protocol = uniform
 l0 = 1.0
 K = 1.0
@@ -41,6 +36,5 @@ info_freq = 1000
 #Active Noise Generator
 nx = 32
 ny = 32
-nz = 32
-tau = 10.00000
-lambda = 3.000000
+tau = 1.00000
+lambda = 1.000000

@@ -39,6 +39,7 @@ public:
     //Various functions
     int get_id();
     arma::vec get_pos();
+    void set_pos(arma::vec mypos);
     bool is_equal(Particle &p);
 
     bool has_connection(Particle &p);

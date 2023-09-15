@@ -10,7 +10,7 @@ System::System(ParamDict &theParams, gsl_rng *&the_rg) {
     //First assign default values to parameters
     kT = 1.0;
     rho = 4.0;
-    phi = 0.4;
+    phi = -1.0;
     dim = 3;
     dt = 0.005;
 
@@ -46,6 +46,9 @@ System::System(ParamDict &theParams, gsl_rng *&the_rg) {
     for(int i=0; i<N; i++){
         particles[i].old_pos = particles[i].pos;
     }
+
+    //Initialize Springs (if network)
+    if(is_network==1) do_spring_init();
 
     //Initialize neighbor grid
     if(do_neighbor_grid==1){
@@ -110,9 +113,16 @@ void System::do_paramdict_assign(ParamDict &theParams) {
         if(i==0 && theParams.is_key("is_p_x")) is_periodic[i] = std::stoi(theParams.get_value("is_p_x")); 
         if(i==1 && theParams.is_key("is_p_y")) is_periodic[i] = std::stoi(theParams.get_value("is_p_y"));
         if(i==2 && theParams.is_key("is_p_z")) is_periodic[i] = std::stoi(theParams.get_value("is_p_z"));
+        //Get no. of unit cells in each direction
+        unit_cells.push_back(1); //default value
+        if(i==0 && theParams.is_key("Nx")) unit_cells[i] = std::stod(theParams.get_value("Nx"));
+        if(i==1 && theParams.is_key("Ny")) unit_cells[i] = std::stod(theParams.get_value("Ny")); 
+        if(i==2 && theParams.is_key("Nz")) unit_cells[i] = std::stod(theParams.get_value("Nz")); 
     }
 
     if(theParams.is_key("kT")) kT = std::stod(theParams.get_value("kT"));
+    if(theParams.is_key("rho")) rho = std::stod(theParams.get_value("rho"));
+    if(theParams.is_key("a")) a = std::stod(theParams.get_value("a"));
     if(theParams.is_key("phi")) phi = std::stod(theParams.get_value("phi"));
     if(theParams.is_key("dt")) dt = std::stod(theParams.get_value("dt"));
     if(theParams.is_key("particle_protocol")) particle_protocol = theParams.get_value("particle_protocol");
@@ -131,29 +141,6 @@ void System::do_paramdict_assign(ParamDict &theParams) {
     if(theParams.is_key("K")) K = std::stod(theParams.get_value("K"));
     if(theParams.is_key("drmax")) drmax = std::stod(theParams.get_value("drmax"));
 
-    //Compute parameters that are derived parameters
-    double volume = 1.0;
-    for(int i=0; i<dim; i++){
-        volume *= edges[i];
-    }
-    double particle_volume;
-    if (dim==1) {
-        particle_volume = sigma;
-    }
-    else if (dim==2) {
-        particle_volume = M_PI*(sigma/2)*(sigma/2);
-    }
-    else if (dim==3) {
-        particle_volume = (4.0/3.0)*M_PI*(sigma/2)*(sigma/2)*(sigma/2);
-    }
-    else {
-        std::cout << "Error: " << dim << "-dimensional simulation not supported." << std::endl;
-        exit(-1);
-    }
-    //Compute N from volume and packing fraction
-    N = std::round(phi*volume/particle_volume); 
-    if (phi==0.0) N = 1;
-    std::cout << "No. of particles: " << N << std::endl;
 }
 
 void System::apply_pbc() {
@@ -176,6 +163,50 @@ void System::apply_pbc() {
 
 void System::do_particle_init() {
 
+    //First compute N
+    //If phi is specified, compute N based on phi
+    if(phi>-1.0){
+        double volume = 1.0;
+        for(int i=0; i<dim; i++){
+            volume *= edges[i];
+        }
+        double particle_volume;
+        if (dim==1) {
+            particle_volume = sigma;
+        }
+        else if (dim==2) {
+            particle_volume = M_PI*(sigma/2)*(sigma/2);
+        }
+        else if (dim==3) {
+            particle_volume = (4.0/3.0)*M_PI*(sigma/2)*(sigma/2)*(sigma/2);
+        }
+        else {
+            std::cout << "Error: " << dim << "-dimensional simulation not supported." << std::endl;
+            exit(-1);
+        }
+        N = std::round(phi*volume/particle_volume); 
+    }
+    if (phi==0.0) N = 1;
+
+    //If it's a lattice, then compute N based on lattice parameters
+    if (particle_protocol.find("lattice") != std::string::npos){
+        if(particle_protocol=="triangular_lattice" || particle_protocol=="square_lattice"){
+            N = unit_cells[0]*unit_cells[1];
+        }
+        else if(particle_protocol=="fcc_lattice"){
+            N = 4*unit_cells[0]*unit_cells[1]*unit_cells[2];
+        }
+    }
+    else{
+        std::cout << R"(Error: Can't figure out how to compute N given input 
+         parameters -- need to either specify phi or have a particle 
+         protocol that is a lattice [triangular, square, or fcc currently supported.])" << std::endl;
+         exit(-1);
+    }
+
+    std::cout << "No. of particles: " << N << std::endl;
+
+    //Create particles and assign their positions
     if (particle_protocol=="zeros") {
         for (int i=0; i<N; i++) {
             Particle p(dim);
@@ -188,13 +219,11 @@ void System::do_particle_init() {
         for (int i=0; i<N; i++) {
             int found = 0;
             while (found==0) {
-
                 //Initialize a new particle at a random position
                 Particle p(dim);
                 for (int j=0; j<dim; j++) {
                     p.pos[j] = edges[j]*(gsl_rng_uniform(rg)-0.5);
                 }
-                
                 found = 1;
                 //Check for overlaps with existing particles
                 for (int j=0; j<i; j++) {
@@ -202,7 +231,6 @@ void System::do_particle_init() {
                         found = 0;
                     }
                 }
-                
                 //If no overlaps found, we're done
                 //Add particle to system
                 if (found == 1) particles.push_back(p);
@@ -210,47 +238,119 @@ void System::do_particle_init() {
         }
         std::cout << "Completed random initialization." << std::endl;
     }
-    else if (particle_protocol=="lattice") {
-        int nx = ceil(sqrt(N*sqrt(3.0)/2.0));
-        int ny = ceil(sqrt(N*2.0/sqrt(3.0)));
+    else if (particle_protocol=="triangular_lattice") {
+        //If N specified by phi, need different method than normal
+        if(phi>0.0){
+            int nx = ceil(sqrt(N*sqrt(3.0)/2.0));
+            int ny = ceil(sqrt(N*2.0/sqrt(3.0)));
 
-        if (nx*ny<N){
-            std::cout << "Error: number of lattice sites (" << nx*ny << ") is less than N." << std::endl;
-            exit(-1);
-        }
-        int count = 0;
-        double a = sqrt(edges[0]*edges[1]/((sqrt(3.0)*nx*ny/2)));
-        std::cout << "spacing: " << a << std::endl;
-        for(int i=0; i<nx; i++){
-            for(int j=0; j<ny; j++){
-                if (count < N){
-                    Particle p(2);
-                    p.pos[0] = i*a;//-edges[0]/2.0;
-                    if (j%2==1) p.pos[0] += 0.5*a;
-                    p.pos[1] = (sqrt(3.0)/2.0)*j*a;//-edges[1]/2.0;
-                    p.pos[2] = 0.0;
-                    p.old_pos = p.pos;
-                    count++;
-                    particles.push_back(p);
+            if (nx*ny<N){
+                std::cout << "Error: number of lattice sites (" << nx*ny << ") is less than N." << std::endl;
+                exit(-1);
+            }
+            int count = 0;
+            //double a = sqrt(edges[0]*edges[1]/((sqrt(3.0)*nx*ny/2)));
+            std::cout << "spacing: " << a << std::endl;
+            for(int i=0; i<nx; i++){
+                for(int j=0; j<ny; j++){
+                    if (count < N){
+                        Particle p(2);
+                        p.pos[0] = i*a;//-edges[0]/2.0;
+                        if (j%2==1) p.pos[0] += 0.5*a;
+                        p.pos[1] = (sqrt(3.0)/2.0)*j*a;//-edges[1]/2.0;
+                        p.pos[2] = 0.0;
+                        p.old_pos = p.pos;
+                        count++;
+                        particles.push_back(p);
+                    }
+                }
+            }
+            if (count!=N){
+                std::cout << "Error: didn't put as many particles on the lattice as should be there." << std::endl;
+                exit(-1);
+            }
+            //Check for overlaps
+            for(int i=0; i<N-1; i++){
+                for(int j=i+1; j<N; j++){
+                    if (get_dist(particles[i], particles[j])<sigma*std::pow(2,1.0/6.0)) {
+                        std::cout << get_dist(particles[i], particles[j]) << std::endl;
+                        std::cout << "Warning: particles " << i << " and " << j << " are only separated by a distance " << get_dist(particles[i], particles[j]) << std::endl;
+                    }
                 }
             }
         }
-        if (count!=N){
-            std::cout << "Error: didn't put as many particles on the lattice as should be there." << std::endl;
-            exit(-1);
+        //If N specified by unit cells
+        else{
+            for(int i=0; i<unit_cells[0]; i++){
+                for(int j=0; j<unit_cells[1]; j++){
+                    Particle p(2);
+                    p.pos[0] = a*i-unit_cells[0]*a/2;
+                    if (j%2==1) p.pos[0] += 0.5*a;
+                    p.pos[1] = (sqrt(3.0)/2.0)*a*j-unit_cells[1]*a/2;
+                    particles.push_back(p);
+                }
+            }
+            //Make sure box consistent with lattice
+            edges[0] = a*unit_cells[0];
+            edges[1] = sqrt(3.0)/2.0*a*unit_cells[1];
         }
-        //Check for overlaps
-        for(int i=0; i<N-1; i++){
-            for(int j=i+1; j<N; j++){
-                if (get_dist(particles[i], particles[j])<sigma*std::pow(2,1.0/6.0)) {
-                    std::cout << get_dist(particles[i], particles[j]) << std::endl;
-                    std::cout << "Warning: particles " << i << " and " << j << " are only separated by a distance " << get_dist(particles[i], particles[j]) << std::endl;
+    }
+    else if (particle_protocol=="square_lattice") {
+        for(int i=0; i<unit_cells[0]; i++){
+            for(int j=0; j<unit_cells[1]; j++){
+                Particle p(2);
+                p.pos[0] = a*i-unit_cells[0]*a/2;
+                p.pos[1] = a*j-unit_cells[1]*a/2;
+                particles.push_back(p);
+            }
+        }
+        edges[0] = a*unit_cells[0];
+        edges[1] = a*unit_cells[1];
+    }
+    else if (particle_protocol=="fcc_lattice") {
+        int Nx = unit_cells[0];
+        int Ny = unit_cells[1];
+        int Nz = unit_cells[2];
+
+        for(int i=0; i<Nx; i++){
+            for(int j=0; j<Ny; j++){
+                for(int k=0; k<Nz; k++){
+                    Particle p1(3);
+                    Particle p2(3);
+                    Particle p3(3);
+                    Particle p4(3);
+                    p1.set_pos({a*i-Nx*a/2, a*j-Ny*a/2, a*k-Nz*a/2});
+                    p2.set_pos({a*(i+0.5)-Nx*a/2, a*(j+0.5)-Ny*a/2, a*k-Nz*a/2});
+                    p3.set_pos({a*(i+0.5)-Nx*a/2, a*j-Ny*a/2, a*(k+0.5)-Nz*a/2});
+                    p4.set_pos({a*i-Nx*a/2, a*(j+0.5)-Ny*a/2, a*(k+0.5)-Nz*a/2});
+                    particles.push_back(p1);
+                    particles.push_back(p2);
+                    particles.push_back(p3);
+                    particles.push_back(p4);
                 }
             }
         }
     }
     else {
         throw std::runtime_error("Error: Particle initialization protocol not supported.");
+    }
+}
+
+void System::do_spring_init() {
+
+    if (spring_protocol=="uniform") {
+        //add springs to all nodes within rest length + epsilon
+        double eps = 1e-2;
+        for (int i=0; i<N-1; i++) {
+            for (int j=i+1; j<N; j++) {
+                if (get_dist(particles[i],particles[j])<(l0+eps)) {
+                    Spring::add_spring(particles[i], particles[j], K, l0);
+                }
+            }
+        }
+    }
+    else {
+        throw std::runtime_error("Error: spring initialization protocol not supported.");
     }
 }
 
@@ -423,8 +523,8 @@ arma::vec System::get_force(Particle &p1) {
     if (p1.is_node) {
         for(int j=0; j<p1.get_num_springs(); j++) {
 
-            double K = p1.springs[j].get_stiffness();
-            double l0 = p1.springs[j].get_rest_length();
+            double my_K = p1.springs[j].get_stiffness();
+            double my_l0 = p1.springs[j].get_rest_length();
 
             Particle *p2 = p1.springs[j].node2;
             if(p1.is_equal(*p2)) p2 = p1.springs[j].node1;
@@ -434,10 +534,10 @@ arma::vec System::get_force(Particle &p1) {
             if (dist<1e-15) throw std::runtime_error("ERROR: attempting to divide by zero in force calculation!");
 
             if (potential_type=="harmonic"){
-                force += get_harmonic_force(dist, disp, K, l0);
+                force += get_harmonic_force(dist, disp, my_K, my_l0);
             }
             else if(potential_type=="fene"){
-                force += get_fene_force(dist, disp, K, l0, drmax);
+                force += get_fene_force(dist, disp, my_K, my_l0, drmax);
             }
             else{
                 std::cout << "WARNING: potential type not recognized!" << std::endl;
@@ -564,17 +664,17 @@ arma::vec System::get_wca_force(double r, arma::vec rvec, double sig, double eps
     else return force;
 }
 
-arma::vec System::get_harmonic_force(double r, arma::vec rvec, double K, double l0) {
+arma::vec System::get_harmonic_force(double r, arma::vec rvec, double KK, double ll0) {
 
-    return -K*(r-l0)*rvec/r;
+    return -KK*(r-ll0)*rvec/r;
 }
 
-arma::vec System::get_fene_force(double r, arma::vec rvec, double K, double l0, double dr) {
+arma::vec System::get_fene_force(double r, arma::vec rvec, double KK, double ll0, double dr) {
 
     arma::vec big_force = arma::ones(dim)*1e20; //TODO: is this a good idea?
 
-    if(r<=l0-dr || r>=l0+dr) return big_force;
-    else return -K*(r-l0)/(1-((r-l0)/dr)*((r-l0)/dr))*rvec/r;
+    if(r<=ll0-dr || r>=ll0+dr) return big_force;
+    else return -KK*(r-ll0)/(1-((r-ll0)/dr)*((r-ll0)/dr))*rvec/r;
 }
 
 double System::minimize_energy(double tol) {
