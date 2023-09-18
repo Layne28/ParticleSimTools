@@ -133,6 +133,7 @@ void System::do_paramdict_assign(ParamDict &theParams) {
     if(theParams.is_key("do_cell_list")) do_cell_list = std::stoi(theParams.get_value("do_cell_list"));
     if(theParams.is_key("do_neighbor_grid")) do_neighbor_grid = std::stoi(theParams.get_value("do_neighbor_grid"));
     if(theParams.is_key("is_network")) is_network = std::stoi(theParams.get_value("is_network"));
+    if(theParams.is_key("is_aoup")) is_aoup = std::stoi(theParams.get_value("is_aoup"));
     if(theParams.is_key("can_bonds_break")) can_bonds_break = std::stoi(theParams.get_value("can_bonds_break"));
 
     //For networks
@@ -140,6 +141,8 @@ void System::do_paramdict_assign(ParamDict &theParams) {
     if(theParams.is_key("l0")) l0 = std::stod(theParams.get_value("l0"));
     if(theParams.is_key("K")) K = std::stod(theParams.get_value("K"));
     if(theParams.is_key("drmax")) drmax = std::stod(theParams.get_value("drmax"));
+    if(theParams.is_key("aoup_D0")) aoup_D0 = std::stod(theParams.get_value("aoup_D0"));
+    if(theParams.is_key("aoup_tau")) aoup_tau = std::stod(theParams.get_value("aoup_tau"));
 
 }
 
@@ -333,6 +336,21 @@ void System::do_particle_init() {
     }
     else {
         throw std::runtime_error("Error: Particle initialization protocol not supported.");
+    }
+
+    //Assign AOUP parameters if specified
+    //Initialize self-propulsion velocities from a Gaussian distribution
+    //w/ mean zero and variance D0/tau (D=va^2 in spatial active noise)
+    if (is_aoup==1){
+        for(int i=0; i<N; i++){
+            particles[i].is_aoup = 1;
+            particles[i].self_prop_vel.zeros(dim);
+            particles[i].aoup_D0 = aoup_D0;
+            particles[i].aoup_tau = aoup_tau;
+            for(int k=0; k<dim; k++){
+                particles[i].self_prop_vel(k) = gsl_ran_gaussian(rg, sqrt(particles[i].aoup_D0/particles[i].aoup_tau));
+            }
+        }
     }
 }
 

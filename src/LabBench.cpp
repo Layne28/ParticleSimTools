@@ -11,6 +11,10 @@ LabBench::LabBench(ParamDict& theParams, gsl_rng*& theGen) : sys(theParams, theG
     if(theParams.is_key("production_steps")) production_steps = std::stoi(theParams.get_value("production_steps"));
     if(theParams.is_key("info_freq")) info_freq = std::stoi(theParams.get_value("info_freq"));
     if(theParams.is_key("experiment")) experiment = theParams.get_value("experiment");
+
+    if(sys.is_aoup==1 && std::stof(theParams.get_value("va"))>0.0){
+        std::cout << "WARNING: Using AOUP and active noise in the same simulation!" << std::endl;
+    }
 }
 
 LabBench::~LabBench() {}

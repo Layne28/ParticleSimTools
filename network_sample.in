@@ -15,11 +15,14 @@ potential_type = fene
 drmax = 0.5
 do_cell_list = 0
 is_network = 1
+is_aoup = 1
+aoup_D0 = 10.0
+aoup_tau = 0.3
 
 #Solver
 dt = 0.00025
 gamma = 1.0
-va = 1.000000
+va = 0.000000
 do_subtract_com = 1
 
 #Observer
@@ -29,7 +32,7 @@ thermo_freq = 100
 
 #LabBench
 experiment = standard
-equil_steps = 1000
+equil_steps = 10000
 production_steps = 0
 info_freq = 1000
 

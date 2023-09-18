@@ -56,7 +56,13 @@
         "streambuf": "cpp",
         "thread": "cpp",
         "typeinfo": "cpp",
-        "armadillo": "cpp"
+        "armadillo": "cpp",
+        "bitset": "cpp",
+        "list": "cpp",
+        "regex": "cpp",
+        "set": "cpp",
+        "future": "cpp",
+        "variant": "cpp"
     },
     "C_Cpp.default.compilerPath": "/opt/ohpc/pub/compiler/gcc/7.3.0/bin/g++"
 }

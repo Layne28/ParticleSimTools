@@ -252,10 +252,7 @@ std::vector<arma::vec> Solver::get_active_noise_forces(System &theSys, Generator
         arma::vec pos = theSys.particles[i].pos;
         int *indices = new int[theSys.dim];
         for(int k=0; k<theSys.dim; k++){
-            //TODO: This will need to be changed if the generator dx
-            //is different for x,y,z
             indices[k] = int((pos(k)+0.5*theSys.edges[k])/gen.spacing[k]);
-            std::cout << indices[k] << std::endl;
         }
         for(int k=0; k<theSys.dim; k++){
             if(theSys.dim==1) active_forces[i](k) = xi(indices[0])(k).real();
@@ -288,5 +285,6 @@ void Solver::update_self_prop_vel(System &theSys, int index, double deet){
     double tau = theSys.particles[index].aoup_tau;
     for(int k=0; k<theSys.dim; k++){
         theSys.particles[index].self_prop_vel[k] += (-theSys.particles[index].self_prop_vel[k]/tau)*deet + sqrt(2*D0)/tau*gsl_ran_gaussian(rg, sqrt(deet));
+        //std::cout << theSys.particles[index].self_prop_vel(k) << std::endl;
     }
 }

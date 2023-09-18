@@ -30,14 +30,17 @@ public:
     int dim;    //no. of spatial dimensions
     double dt;  //timestep
 
-    int is_network;     //Whether particles are connected to other particles by springs
+    int is_network = 0;     //Whether particles are connected to other particles by springs
     int can_bonds_break = 0; //Whether network connectivity can change
+    int is_aoup = 0; //Whether to make particles AOUPs
 
     double rcut; //cutoff distance for pair potential
     double sigma;
     double epsilon;
     double l0; //spring rest length
     double K; //spring constant
+    double aoup_D0; //aoup diffusion constant
+    double aoup_tau; //aoup correlation time
     double drmax;
     std::string potential_type = "lj";
     std::string particle_protocol;
