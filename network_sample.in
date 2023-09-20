@@ -2,8 +2,8 @@
 rho = 1.0
 a = 1.0
 dim = 2
-Nx = 12
-Ny = 14
+Nx = 24
+Ny = 28
 is_p_x = 1
 is_p_y = 1
 particle_protocol = triangular_lattice
@@ -11,33 +11,36 @@ spring_protocol = uniform
 l0 = 1.0
 K = 1.0
 kT = 0.0
-potential_type = fene
+bonded_potential_type = fene
+nonbonded_potential_type = wca
 drmax = 0.5
-do_cell_list = 0
+do_cell_list = 1
 is_network = 1
-is_aoup = 1
-aoup_D0 = 10.0
-aoup_tau = 0.3
+is_aoup = 0
+aoup_D0 = 30.0
+aoup_tau = 1.0
+sigma = 0.8
+epsilon = 1.0
 
 #Solver
 dt = 0.00025
 gamma = 1.0
-va = 0.000000
+va = 1.000000
 do_subtract_com = 1
 
 #Observer
 output_dir = ./testdir
-network_freq = 100
-thermo_freq = 100
+network_freq = 500
+thermo_freq = 500
 
 #LabBench
 experiment = standard
-equil_steps = 10000
+equil_steps = 100000
 production_steps = 0
 info_freq = 1000
 
 #Active Noise Generator
-nx = 32
-ny = 32
+nx = 64
+ny = 64
 tau = 1.00000
 lambda = 1.000000

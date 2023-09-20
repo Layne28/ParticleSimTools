@@ -68,17 +68,17 @@ void LabBench::run_standard_experiment()
         double kT0 = sys.kT;
         double va0 = solver.va;
         double dt0 = sys.dt;
-        std::string pot = sys.potential_type;
+        std::string pot = sys.nonbonded_potential_type;
         
         //Set "high" temperature and no active noise
         //to get random initial configuration
         sys.kT = 0.5;
         solver.va = 0.0;
         sys.dt = 0.00025;
-        sys.potential_type = "wca";
+        sys.nonbonded_potential_type = "wca";
         std::cout << "kT: " << sys.kT << std::endl;;
         std::cout << "va: " << solver.va << std::endl;
-        std::cout << "potential: " << sys.potential_type << std::endl;
+        std::cout << "potential: " << sys.nonbonded_potential_type << std::endl;
         std::cout << "dt: " << sys.dt << std::endl;;
         this->run(this->randomization_steps, "/randomize", this->obs.particles_freq, this->obs.thermo_freq);
 
@@ -86,12 +86,12 @@ void LabBench::run_standard_experiment()
         sys.kT = kT0;
         solver.va = va0;
         sys.dt = dt0;
-        sys.potential_type = pot;
+        sys.nonbonded_potential_type = pot;
 
         std::cout << "Resetting parameters: " << std::endl;
         std::cout << "kT: " << sys.kT << std::endl;
         std::cout << "va: " << solver.va << std::endl;
-        std::cout << "potential: " << sys.potential_type << std::endl;
+        std::cout << "potential: " << sys.nonbonded_potential_type << std::endl;
     }
     
     std::cout << "Equilibrating..." << std::endl;

@@ -42,7 +42,8 @@ public:
     double aoup_D0; //aoup diffusion constant
     double aoup_tau; //aoup correlation time
     double drmax;
-    std::string potential_type = "lj";
+    std::string bonded_potential_type = "harmonic";
+    std::string nonbonded_potential_type = "none";
     std::string particle_protocol;
     std::string spring_protocol;
 

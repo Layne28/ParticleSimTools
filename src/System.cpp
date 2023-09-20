@@ -126,7 +126,8 @@ void System::do_paramdict_assign(ParamDict &theParams) {
     if(theParams.is_key("phi")) phi = std::stod(theParams.get_value("phi"));
     if(theParams.is_key("dt")) dt = std::stod(theParams.get_value("dt"));
     if(theParams.is_key("particle_protocol")) particle_protocol = theParams.get_value("particle_protocol");
-    if(theParams.is_key("potential_type")) potential_type = theParams.get_value("potential_type");
+    if(theParams.is_key("nonbonded_potential_type")) nonbonded_potential_type = theParams.get_value("nonbonded_potential_type");
+    if(theParams.is_key("bonded_potential_type")) bonded_potential_type = theParams.get_value("bonded_potential_type");
     if(theParams.is_key("epsilon")) epsilon = std::stod(theParams.get_value("epsilon"));
     if(theParams.is_key("sigma")) sigma = std::stod(theParams.get_value("sigma"));
     if(theParams.is_key("rcut")) rcut = std::stod(theParams.get_value("rcut"));
@@ -415,12 +416,32 @@ double System::get_energy_between(Particle &p1, Particle &p2) {
 
     double energy = 0;
     double dist = get_dist(p1, p2);
-    if (dist<=rcut) {
-        if (potential_type=="lj"){
-            energy = get_lj_potential(dist, sigma, epsilon, rcut);
+
+    //Check if particles are bonded
+    if (p1.has_connection(p2)){
+        if (bonded_potential_type=="harmonic"){
+            energy += get_harmonic_potential(dist, K, l0);
         }
-        else if(potential_type=="wca"){
-            energy = get_wca_potential(dist, sigma, epsilon);
+        else if (bonded_potential_type=="fene"){
+            energy += get_fene_potential(dist, K, l0, drmax);
+        }
+        else if (bonded_potential_type=="none"){}
+        else{
+            std::cout << "WARNING: bonded potential type not recognized!" << std::endl;
+        }
+    }
+
+    //Compute nonbonded energy
+    if (dist<=rcut) {
+        if (nonbonded_potential_type=="lj"){
+            energy += get_lj_potential(dist, sigma, epsilon, rcut);
+        }
+        else if(nonbonded_potential_type=="wca"){
+            energy += get_wca_potential(dist, sigma, epsilon);
+        }
+        else if (nonbonded_potential_type=="none"){}
+        else{
+            std::cout << "WARNING: non-bonded potential type not recognized!" << std::endl;
         }
     }
 
@@ -470,10 +491,10 @@ double System::get_energy_neighbor_grid() {
             double dist = get_dist(particles[i], *p2);
             if (dist<1e-10) std::cout << "Error: particles overlap!" << std::endl;
             if (dist<=rcut) {
-                if (potential_type=="lj"){
+                if (nonbonded_potential_type=="lj"){
                     energy += get_lj_potential(dist, sigma, epsilon, rcut); 
                 }
-                else if(potential_type=="wca"){
+                else if(nonbonded_potential_type=="wca"){
                     energy += get_wca_potential(dist, sigma, epsilon); 
                 }
             }
@@ -551,32 +572,33 @@ arma::vec System::get_force(Particle &p1) {
             double dist = get_dist(p1, *p2);
             if (dist<1e-15) throw std::runtime_error("ERROR: attempting to divide by zero in force calculation!");
 
-            if (potential_type=="harmonic"){
+            if (bonded_potential_type=="harmonic"){
                 force += get_harmonic_force(dist, disp, my_K, my_l0);
             }
-            else if(potential_type=="fene"){
+            else if(bonded_potential_type=="fene"){
                 force += get_fene_force(dist, disp, my_K, my_l0, drmax);
             }
+            else if (bonded_potential_type=="none"){}
             else{
-                std::cout << "WARNING: potential type not recognized!" << std::endl;
+                std::cout << "WARNING: bonded potential type not recognized!" << std::endl;
             }
         }
     }
-    else{
+    if (nonbonded_potential_type!="none"){
         for (int j=0; j<N; j++) {
             if (particles[j].get_id()!=p1.get_id()) {
                 double dist = get_dist(p1, particles[j]);
                 if (dist<1e-15) throw std::runtime_error("ERROR: attempting to divide by zero in force calculation!");
                 if (dist<=rcut) {
                     arma::vec disp = get_disp_vec(p1, particles[j]);
-                    if (potential_type=="lj"){
+                    if (nonbonded_potential_type=="lj"){
                         force += get_lj_force(dist, disp, sigma, epsilon); 
                     }
-                    else if(potential_type=="wca"){
+                    else if(nonbonded_potential_type=="wca"){
                         force += get_wca_force(dist, disp, sigma, epsilon); 
                     }
                     else{
-                        std::cout << "WARNING: potential type not recognized!" << std::endl;
+                        std::cout << "WARNING: nonbonded potential type not recognized!" << std::endl;
                     }
                 }
             }
@@ -589,15 +611,35 @@ arma::vec System::get_force_from(Particle &p1, Particle &p2) {
     
     arma::vec force(dim, arma::fill::zeros);
     
+    arma::vec disp = get_disp_vec(p1, p2);
     double dist = get_dist(p1, p2);
     if (dist<1e-15) throw std::runtime_error("ERROR: attempting to divide by zero in force calculation!");
-    if (dist<=rcut) {
-        arma::vec disp = get_disp_vec(p1, p2);
-        if (potential_type=="lj"){
-            force = get_lj_force(dist, disp, sigma, epsilon); 
+
+    //Bonded force
+    if(p1.has_connection(p2)){
+        if (bonded_potential_type=="harmonic"){
+            force += get_harmonic_force(dist, disp, K, l0);
         }
-        else if(potential_type=="wca"){
-            force = get_wca_force(dist, disp, sigma, epsilon); 
+        else if (bonded_potential_type=="fene"){
+            force += get_fene_force(dist, disp, K, l0, drmax);
+        }
+        else if (bonded_potential_type=="none"){}
+        else{
+            std::cout << "WARNING: bonded potential type not recognized!" << std::endl;
+        }
+    }
+
+    //Nonbonded force
+    if (dist<=rcut) {
+        if (nonbonded_potential_type=="lj"){
+            force += get_lj_force(dist, disp, sigma, epsilon); 
+        }
+        else if(nonbonded_potential_type=="wca"){
+            force += get_wca_force(dist, disp, sigma, epsilon); 
+        }
+        else if (nonbonded_potential_type=="none"){}
+        else{
+            std::cout << "WARNING: nonbonded potential type not recognized!" << std::endl;
         }
     }
     return force;
@@ -616,10 +658,10 @@ arma::vec System::get_force_neighbor_grid(Particle &p1) {
         double dist = get_dist(p1, *p2);
         if (dist<=rcut) {
             arma::vec disp = get_disp_vec(p1, *p2);
-            if (potential_type=="lj"){
+            if (nonbonded_potential_type=="lj"){
                 force += get_lj_force(dist, disp, sigma, epsilon); 
             }
-            else if(potential_type=="wca"){
+            else if(nonbonded_potential_type=="wca"){
                 force += get_wca_force(dist, disp, sigma, epsilon); 
             }
         }
