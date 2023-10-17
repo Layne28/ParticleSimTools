@@ -200,6 +200,13 @@ void System::do_particle_init() {
         else if(particle_protocol=="fcc_lattice"){
             N = 4*unit_cells[0]*unit_cells[1]*unit_cells[2];
         }
+        else if(particle_protocol=="uniform_lattice"){
+            if (dim!=1){
+                std::cout << "Error: uniform lattice only supported for d=1." << std::endl;
+                exit(-1);
+            }
+            N = unit_cells[0];
+        }
     }
     else{
         std::cout << R"(Error: Can't figure out how to compute N given input 
@@ -241,6 +248,14 @@ void System::do_particle_init() {
             }
         }
         std::cout << "Completed random initialization." << std::endl;
+    }
+    else if (particle_protocol=="uniform_lattice") {
+        for(int i=0; i<unit_cells[0]; i++){
+            Particle p(1);
+            p.pos[0] = a*i-unit_cells[0]*a/2;
+            particles.push_back(p);
+        }
+        edges[0] = a*unit_cells[0];
     }
     else if (particle_protocol=="triangular_lattice") {
         //If N specified by phi, need different method than normal
@@ -452,8 +467,10 @@ double System::get_energy_cell_list() {
 
     double energy = 0;
 
-    //update cell list
-    create_cell_list();
+    //update cell list if particles have moved out of cells
+    if(needs_update_cell_list()==1){
+        create_cell_list();
+    }
 
     //Loop over cells (including self)
     for (int index1 = N-1; index1 >= 0; index1--) {
@@ -671,8 +688,10 @@ arma::vec System::get_force_neighbor_grid(Particle &p1) {
 
 std::vector<arma::vec> System::get_forces_cell_list() {
 
-    //update cell list
-    create_cell_list();
+    //update cell list if particles have moved out of cells
+    if(needs_update_cell_list()==1){
+        create_cell_list();
+    }
 
     //Initialize forces to zero
     std::vector<arma::vec> forces(N);
@@ -815,7 +834,24 @@ void System::update_neighborgrid() {
 
 /*** Cell list methods ***/
 
+//Check whether particles have moved out of their assigned cells
+//TODO: update this for dim!=2
+int System::needs_update_cell_list() {
+
+    for(int i=0; i<N; i++){
+        int icell = cellndx[i];
+        double shiftx = particles[i].pos[0] + edges[0]/2.0;
+        double shifty = particles[i].pos[1] + edges[1]/2.0;
+        int curr_cell = int(shiftx/cellsize_x) + int(shifty/cellsize_y)*ncell_x;
+        if(curr_cell!=icell){
+            return 1;
+        }
+    }
+    return 0;
+}
+
 // assign each particle to a cell
+//TODO: update this for dim!=2
 void System::create_cell_list() {
    int icell;
    for (int i = 0; i < ncell_x*ncell_y; i++) {
@@ -838,6 +874,7 @@ void System::create_cell_list() {
 }
 
 // find neighboring cells of each cell
+//TODO: update this for dim!=2
 void System::fill_cellneigh() {
     int icell, jcell, nneigh;
     int jx, jy;

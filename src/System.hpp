@@ -112,6 +112,7 @@ public:
     Observer get_obs();
 
     //Methods for cell list and neighbor grid
+    int needs_update_cell_list();
     void create_cell_list();
     void fill_cellneigh();
     void update_neighborgrid();
