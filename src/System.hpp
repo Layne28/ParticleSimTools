@@ -31,8 +31,9 @@ public:
     double dt;  //timestep
 
     int is_network = 0;     //Whether particles are connected to other particles by springs
-    int bonds_can_break = 0; //Whether network connectivity can change
+    int can_bonds_break = 0; //Whether network connectivity can change
     int **bond_array; //Record connectivity of network
+    double k0_bond; //Rate of bond breaking
     int is_aoup = 0; //Whether to make particles AOUPs
 
     double rcut; //cutoff distance for pair potential

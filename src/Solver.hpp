@@ -28,6 +28,9 @@ public:
 
     //Active noise parameters
     double va = 1.0;
+    int nx = 4;
+    int ny = 4;
+    int nz = 4;
     
     gsl_rng *rg;
 
@@ -41,6 +44,7 @@ public:
 
     //take a step forward in time
     void update(System &theSys, double deet, int level=0);
+    void update_bonds(System &theSys, double deet);
 
     std::vector<arma::vec> get_thermal_forces(System &theSys, double deet);
     std::vector<arma::vec> get_aoup_forces(System &theSys);

@@ -51,7 +51,7 @@ System::System(ParamDict &theParams, gsl_rng *&the_rg) {
 
     //Initialize Springs (if network)
     if(is_network==1){
-        bond_array = new int[N][N](); //initialize to zero
+        //bond_array = new int[N][N](); //initialize to zero
         do_spring_init();
     } 
 
@@ -205,6 +205,9 @@ void System::do_particle_init() {
         }
         else if(particle_protocol=="fcc_lattice"){
             N = 4*unit_cells[0]*unit_cells[1]*unit_cells[2];
+        }
+        else if(particle_protocol=="two_site_lattice"){
+            N = 2;
         }
         else if(particle_protocol=="uniform_lattice"){
             if (dim!=1){
@@ -385,8 +388,8 @@ void System::do_spring_init() {
             for (int j=i+1; j<N; j++) {
                 if (get_dist(particles[i],particles[j])<(l0+eps)) {
                     Spring::add_spring(particles[i], particles[j], K, l0);
-                    bond_array[i][j] = 1;
-                    bond_array[j][i] = 1;
+                    //bond_array[i][j] = 1;
+                    //bond_array[j][i] = 1;
                 }
             }
         }

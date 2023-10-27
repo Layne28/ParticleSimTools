@@ -9,15 +9,17 @@ Solver::Solver(System &theSys, ParamDict &theParams, gsl_rng *&the_rg)
     if(theParams.is_key("gamma")) gamma = std::stod(theParams.get_value("gamma"));
     if(theParams.is_key("do_adaptive_timestep")) do_adaptive_timestep = std::stoi(theParams.get_value("do_adaptive_timestep")); 
     if(theParams.is_key("do_subtract_com")) do_subtract_com = std::stoi(theParams.get_value("do_subtract_com")); 
-    std::cout << dt << std::endl;
 
     //***Active noise***
     if(theParams.is_key("va")) va = std::stod(theParams.get_value("va"));
+    if(theParams.is_key("nx")) nx = std::stoi(theParams.get_value("nx")); 
+    if(theParams.is_key("ny")) ny = std::stoi(theParams.get_value("ny")); 
+    if(theParams.is_key("nz")) nz = std::stoi(theParams.get_value("nz")); 
     //Active noise generator will generate values with variance va^2
     theParams.add_entry("D", std::to_string(va*va)); 
 
     //Set grid spacing
-    double dee_x = theSys.edges[0]/int(std::stoi(theParams.get_value("nx")));
+    double dee_x = theSys.edges[0]/nx;
     //Set precision of dx
     std::ostringstream out_x;
     out_x.precision(15);
@@ -25,7 +27,7 @@ Solver::Solver(System &theSys, ParamDict &theParams, gsl_rng *&the_rg)
     theParams.add_entry("dx", out_x.str());
 
     if(theSys.dim==2 || theSys.dim==3){
-        double dee_y = theSys.edges[1]/int(std::stoi(theParams.get_value("ny")));
+        double dee_y = theSys.edges[1]/ny;
         //Set precision of dy
         std::ostringstream out_y;
         out_y.precision(15);
@@ -34,7 +36,7 @@ Solver::Solver(System &theSys, ParamDict &theParams, gsl_rng *&the_rg)
     }
 
     if(theSys.dim==3){
-        double dee_z = theSys.edges[2]/int(std::stoi(theParams.get_value("nz")));
+        double dee_z = theSys.edges[2]/nz;
         //Set precision of dz
         std::ostringstream out_z;
         out_z.precision(15);
@@ -139,8 +141,8 @@ void Solver::update(System &theSys, double deet, int level)
     }
 
     //If applicable, break and make bonds
-    if(theSys.bonds_can_break==1 && level==0){
-        update_bonds(theSys, deet)
+    if(theSys.can_bonds_break==1 && level==0){
+        update_bonds(theSys, deet);
     }
 
     if(level==0) theSys.time++;
@@ -155,6 +157,7 @@ void Solver::update_bonds(System &theSys, double deet){
 
     //Break bonds
     double P_detach = 1.0 - exp(-k0*deet);
+    std::cout << "P_detach: " << P_detach << std::endl;
     for(int i=0; i<theSys.N; i++){
         int nsprings = theSys.particles[i].get_num_springs();
         std::vector<int> to_remove;
@@ -169,7 +172,8 @@ void Solver::update_bonds(System &theSys, double deet){
         //Remove bonds starting from the highest index
         //so that we don't have to worry about re-indexing
         while(!to_remove.empty()){
-            Particle *p2 = theSys.particles[i].springs[to_remove.back()]
+            Particle *p2 = theSys.particles[i].springs[to_remove.back()].node2;
+            if(theSys.particles[i].is_equal(*p2)) p2 = theSys.particles[i].springs[to_remove.back()].node1;
             Spring::remove_spring(theSys.particles[i], *p2);
             to_remove.pop_back();
         }
