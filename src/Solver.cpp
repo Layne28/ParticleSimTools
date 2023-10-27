@@ -157,14 +157,20 @@ void Solver::update_bonds(System &theSys, double deet){
 
     //Break bonds
     double P_detach = 1.0 - exp(-k0*deet);
-    std::cout << "P_detach: " << P_detach << std::endl;
+    //std::cout << "P_detach: " << P_detach << std::endl;
     for(int i=0; i<theSys.N; i++){
         int nsprings = theSys.particles[i].get_num_springs();
         std::vector<int> to_remove;
         for(int j=0; j<nsprings; j++){
-            double xsi = gsl_rng_uniform(rg);
-            if (xsi<P_detach){
-                to_remove.push_back(j);
+            //To prevent double-counting, only attempt a bond break if 
+            //the second particle index is larger than the first
+            Particle *p2 = theSys.particles[i].springs[j].node2;
+            if(theSys.particles[i].is_equal(*p2)) p2 = theSys.particles[i].springs[j].node1;
+            if(p2->get_id()>theSys.particles[i].get_id()){
+                double xsi = gsl_rng_uniform(rg);
+                if (xsi<P_detach){
+                    to_remove.push_back(j);
+                }
             }
         }
         //sort lowest to highest spring index
