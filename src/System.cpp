@@ -29,6 +29,8 @@ System::System(ParamDict &theParams, gsl_rng *&the_rg) {
     rcut = 2.5;
     drmax = 0.5;
 
+    k0_bond = 0.0;
+
     //Then assign from ParamDict if there
     do_paramdict_assign(theParams);
 
@@ -48,7 +50,10 @@ System::System(ParamDict &theParams, gsl_rng *&the_rg) {
     }
 
     //Initialize Springs (if network)
-    if(is_network==1) do_spring_init();
+    if(is_network==1){
+        bond_array = new int[N][N](); //initialize to zero
+        do_spring_init();
+    } 
 
     //Initialize neighbor grid
     if(do_neighbor_grid==1){
@@ -131,6 +136,7 @@ void System::do_paramdict_assign(ParamDict &theParams) {
     if(theParams.is_key("epsilon")) epsilon = std::stod(theParams.get_value("epsilon"));
     if(theParams.is_key("sigma")) sigma = std::stod(theParams.get_value("sigma"));
     if(theParams.is_key("rcut")) rcut = std::stod(theParams.get_value("rcut"));
+    if(theParams.is_key("k0_bond")) k0_bond = std::stod(theParams.get_value("k0_bond"));
     if(theParams.is_key("do_cell_list")) do_cell_list = std::stoi(theParams.get_value("do_cell_list"));
     if(theParams.is_key("do_neighbor_grid")) do_neighbor_grid = std::stoi(theParams.get_value("do_neighbor_grid"));
     if(theParams.is_key("is_network")) is_network = std::stoi(theParams.get_value("is_network"));
@@ -379,6 +385,8 @@ void System::do_spring_init() {
             for (int j=i+1; j<N; j++) {
                 if (get_dist(particles[i],particles[j])<(l0+eps)) {
                     Spring::add_spring(particles[i], particles[j], K, l0);
+                    bond_array[i][j] = 1;
+                    bond_array[j][i] = 1;
                 }
             }
         }

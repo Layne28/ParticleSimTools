@@ -40,8 +40,7 @@ public:
     ~Solver();
 
     //take a step forward in time
-    void update(System &theSys);
-    void update_adaptive(System &theSys, double deet, int level);
+    void update(System &theSys, double deet, int level=0);
 
     std::vector<arma::vec> get_thermal_forces(System &theSys, double deet);
     std::vector<arma::vec> get_aoup_forces(System &theSys);

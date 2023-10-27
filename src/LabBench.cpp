@@ -39,8 +39,7 @@ void LabBench::run(int nstps, std::string subdir, int net_freq, int therm_freq)
             }
         }
         //Advance dynamics
-        //solver.update(sys);
-        solver.update_adaptive(sys, sys.dt, 0);
+        solver.update(sys, sys.dt);
     }
 }
 

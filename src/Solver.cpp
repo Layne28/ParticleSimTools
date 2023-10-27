@@ -58,49 +58,7 @@ Solver::~Solver()
     delete anGen;
 }
 
-void Solver::update(System &theSys)
-{
-    //Get conservative forces
-    std::vector<arma::vec> potential_forces = theSys.get_forces();
-
-    //Get AOUP forces
-    std::vector<arma::vec> aoup_forces = get_aoup_forces(theSys);
-
-    //Get active noise forces
-    std::vector<arma::vec> active_forces = get_active_noise_forces(theSys, *anGen);
-
-    //Get thermal forces
-    std::vector<arma::vec> thermal_forces = get_thermal_forces(theSys, dt);
-
-    //Compute particle motion due to forces
-    std::vector<arma::vec> incr(theSys.N);
-    for(int i=0; i<theSys.N; i++){
-        arma::vec v(theSys.dim,arma::fill::zeros);
-        incr[i] = v;
-    }
-    for(int i=0; i<theSys.N; i++){
-        incr[i] = potential_forces[i]/gamma*dt
-                  + aoup_forces[i]/gamma*dt
-                  + active_forces[i]*dt //TODO: check whether there should be a factor of 1/gamma here
-                  + thermal_forces[i]; //dt is included in thermal forces
-    }
-
-    //Update positions and velocities accordingly
-    for(int i=0; i<theSys.N; i++){
-        theSys.particles[i].old_pos = theSys.particles[i].pos;
-        theSys.particles[i].pos += incr[i];
-        theSys.particles[i].vel = incr[i]/dt;
-        //Advance OU process in time
-        if(theSys.particles[i].is_aoup){
-            update_self_prop_vel(theSys, i, dt);
-        }
-    }
-    if(va>0.0) anGen->step(dt); //advance active noise in time
-    theSys.apply_pbc();
-    theSys.time++;
-}
-
-void Solver::update_adaptive(System &theSys, double deet, int level)
+void Solver::update(System &theSys, double deet, int level)
 {
     //Get conservative forces
     std::vector<arma::vec> potential_forces = theSys.get_forces();
@@ -134,24 +92,38 @@ void Solver::update_adaptive(System &theSys, double deet, int level)
     }
     theSys.apply_pbc();
 
-    //Check whether the new position will result in a really large force
-    std::vector<arma::vec> new_forces = theSys.get_forces();
-    double max_force = 0;
-    for(int i=0; i<theSys.N; i++){
-        for(int k=0; k<theSys.dim; k++){
-            if(fabs(new_forces[i][k])>max_force) max_force = new_forces[i][k];
-        }
-    }
-    //Only decrease time step if force is above threshold
-    //and timestep is not already tiny
-    if(max_force > force_thresh && deet>1e-10){
-        if(level==0) std::cout << "Force too high. Decreasing time step by a factor of 4 (now =" << deet/4 << ")." << std::endl;
-        //revert to old position
+    if(do_adaptive_timestep){
+        //Check whether the new position will result in a really large force
+        std::vector<arma::vec> new_forces = theSys.get_forces();
+        double max_force = 0;
         for(int i=0; i<theSys.N; i++){
-            theSys.particles[i].pos = theSys.particles[i].old_pos;
+            for(int k=0; k<theSys.dim; k++){
+                if(fabs(new_forces[i][k])>max_force) max_force = new_forces[i][k];
+            }
         }
-        for(int k=0; k<4; k++){
-            update_adaptive(theSys, deet/4, level+1);
+        //Only decrease time step if force is above threshold
+        //and timestep is not already tiny
+        if(max_force > force_thresh && deet>1e-10){
+            if(level==0) std::cout << "Force too high. Decreasing time step by a factor of 4 (now =" << deet/4 << ")." << std::endl;
+            //revert to old position
+            for(int i=0; i<theSys.N; i++){
+                //TODO: WARNING: to make this work with NeighborGrid, need to reset old_pos as well.
+                theSys.particles[i].pos = theSys.particles[i].old_pos;
+            }
+            for(int k=0; k<4; k++){
+                update(theSys, deet/4, level+1);
+            }
+        }
+        else{
+            for(int i=0; i<theSys.N; i++){
+                theSys.particles[i].vel = incr[i]/deet;
+                //Advance OU process in time
+                if(theSys.particles[i].is_aoup){
+                    update_self_prop_vel(theSys, i, deet);
+                }
+            }
+            if(va>0.0) anGen->step(deet); //advance active noise in time
+            theSys.apply_pbc();
         }
     }
     else{
@@ -166,7 +138,45 @@ void Solver::update_adaptive(System &theSys, double deet, int level)
         theSys.apply_pbc();
     }
 
+    //If applicable, break and make bonds
+    if(theSys.bonds_can_break==1 && level==0){
+        update_bonds(theSys, deet)
+    }
+
     if(level==0) theSys.time++;
+}
+
+void Solver::update_bonds(System &theSys, double deet){
+    //Get lists of existing bonds and potential bonds
+    std::vector<std::tuple<int, int>> old_bonds;
+    std::vector<std::tuple<int, int>> new_bonds;
+
+    double k0 = theSys.k0_bond;
+
+    //Break bonds
+    double P_detach = 1.0 - exp(-k0*deet);
+    for(int i=0; i<theSys.N; i++){
+        int nsprings = theSys.particles[i].get_num_springs();
+        std::vector<int> to_remove;
+        for(int j=0; j<nsprings; j++){
+            double xsi = gsl_rng_uniform(rg);
+            if (xsi<P_detach){
+                to_remove.push_back(j);
+            }
+        }
+        //sort lowest to highest spring index
+        std::sort(to_remove.begin(), to_remove.end());
+        //Remove bonds starting from the highest index
+        //so that we don't have to worry about re-indexing
+        while(!to_remove.empty()){
+            Particle *p2 = theSys.particles[i].springs[to_remove.back()]
+            Spring::remove_spring(theSys.particles[i], *p2);
+            to_remove.pop_back();
+        }
+    }
+
+    //Construct new_bonds
+    //TODO: do this
 }
 
 std::vector<arma::vec> Solver::get_thermal_forces(System &theSys, double deet){
