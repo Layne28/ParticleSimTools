@@ -148,4 +148,30 @@ TEST_CASE("Solver")
         //std::cout << "test: " << testsum << std::endl;
         //std::cout << "test2: " << testsum2 << std::endl;
     }
+
+    SECTION("Check detailed balance")
+    {
+        int nsteps = 10000000;
+        System theSys(defaultParams, myGen);
+        Solver solver(theSys, defaultParams, myGen);
+
+        double bond_energy = theSys.eps_bond; //change to reflect strain
+
+        int num_bonded = 0;
+        int num_unbonded = 0;
+
+        //Run a trajectory
+        for(int t=0; t<nsteps; t++){
+            solver.update_bonds(theSys, theSys.dt);
+            if(theSys.particles[0].get_num_springs()==1){
+                num_bonded++;
+            }
+            else{
+                num_unbonded++;
+            }
+            theSys.time++;
+        }
+        double ratio = (1.0*num_bonded)/num_unbonded;
+        REQUIRE(std::fabs(ratio-std::exp(-bond_energy/theSys.kT))<1e-3);
+    }
 }
