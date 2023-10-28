@@ -149,15 +149,15 @@ void Solver::update(System &theSys, double deet, int level)
 }
 
 void Solver::update_bonds(System &theSys, double deet){
-    //Get lists of existing bonds and potential bonds
-    std::vector<std::tuple<int, int>> old_bonds;
-    std::vector<std::tuple<int, int>> new_bonds;
 
     double k0 = theSys.k0_bond;
 
-    //Break bonds
+    //Keep track of which bonds have been broken
+    //so that we don't attempt to remake them this timestep
+    std::vector<std::pair<int, int>> broken_bonds;
+
+    //Attempt to break bonds
     double P_detach = 1.0 - exp(-k0*deet);
-    //std::cout << "P_detach: " << P_detach << std::endl;
     for(int i=0; i<theSys.N; i++){
         int nsprings = theSys.particles[i].get_num_springs();
         std::vector<int> to_remove;
@@ -170,6 +170,11 @@ void Solver::update_bonds(System &theSys, double deet){
                 double xsi = gsl_rng_uniform(rg);
                 if (xsi<P_detach){
                     to_remove.push_back(j);
+                    //Record broken bond
+                    int pid1 = theSys.particles[i].get_id();
+                    int pid2 = p2->get_id();
+                    std::pair<int, int> bond = std::make_pair(pid1, pid2);
+                    broken_bonds.push_back(bond);
                 }
             }
         }
@@ -185,8 +190,41 @@ void Solver::update_bonds(System &theSys, double deet){
         }
     }
 
-    //Construct new_bonds
-    //TODO: do this
+    //Attempt to make bonds
+    //Don't try making bonds b/t particles further away than 
+    //max bond extension
+    double max_dist = theSys.l0 + theSys.drmax;
+    if(theSys.do_cell_list){
+
+    }
+    else{
+        for(int i=0; i<theSys.N-1; i++){
+            for(int j=i+1; j<theSys.N; j++){
+                int pid1 = theSys.particles[i].get_id();
+                int pid2 = theSys.particles[j].get_id();
+                std::pair<int,int> bond = {pid1, pid2};
+                //Order small to large, same as broken bonds list
+                if(pid2<pid1){
+                    bond = {pid2, pid1};
+                }
+                //Check if particles are close but not bonded
+                if(theSys.get_dist(theSys.particles[i], theSys.particles[j])<max_dist 
+                    && !(theSys.particles[i].has_connection(theSys.particles[j]))){
+                    //Check that this is not a just-broken bond
+                    if(std::find(broken_bonds.begin(), broken_bonds.end(), bond)==broken_bonds.end()){
+                        double bond_energy = theSys.get_bonded_energy(theSys.particles[i], theSys.particles[j]);
+                        double k_on = k0*std::exp(-bond_energy/theSys.kT);
+                        double P_attach = 1 - std::exp(-k_on*deet);
+                        double xsi = gsl_rng_uniform(rg);
+                        if (xsi<P_attach){
+                            Spring::add_spring(theSys.particles[i], theSys.particles[j]);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
 }
 
 std::vector<arma::vec> Solver::get_thermal_forces(System &theSys, double deet){

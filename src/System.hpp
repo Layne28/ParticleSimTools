@@ -34,6 +34,7 @@ public:
     int can_bonds_break = 0; //Whether network connectivity can change
     int **bond_array; //Record connectivity of network
     double k0_bond; //Rate of bond breaking
+    double eps_bond; //Energy from having a bond
     int is_aoup = 0; //Whether to make particles AOUPs
 
     double rcut; //cutoff distance for pair potential
@@ -93,6 +94,7 @@ public:
     arma::vec get_com();
     double get_energy();
     double get_energy_between(Particle &p1, Particle &p2);
+    double get_bonded_energy(Particle &p1, Particle &p2);
     double get_energy_cell_list();
     double get_energy_neighbor_grid();
     double get_lj_potential(double r, double sig, double eps, double rc);

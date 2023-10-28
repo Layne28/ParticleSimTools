@@ -30,6 +30,7 @@ System::System(ParamDict &theParams, gsl_rng *&the_rg) {
     drmax = 0.5;
 
     k0_bond = 0.0;
+    eps_bond = 0.0;
 
     //Then assign from ParamDict if there
     do_paramdict_assign(theParams);
@@ -137,6 +138,7 @@ void System::do_paramdict_assign(ParamDict &theParams) {
     if(theParams.is_key("sigma")) sigma = std::stod(theParams.get_value("sigma"));
     if(theParams.is_key("rcut")) rcut = std::stod(theParams.get_value("rcut"));
     if(theParams.is_key("k0_bond")) k0_bond = std::stod(theParams.get_value("k0_bond"));
+    if(theParams.is_key("eps_bond")) eps_bond = std::stod(theParams.get_value("eps_bond"));
     if(theParams.is_key("do_cell_list")) do_cell_list = std::stoi(theParams.get_value("do_cell_list"));
     if(theParams.is_key("do_neighbor_grid")) do_neighbor_grid = std::stoi(theParams.get_value("do_neighbor_grid"));
     if(theParams.is_key("is_network")) is_network = std::stoi(theParams.get_value("is_network"));
@@ -445,6 +447,7 @@ double System::get_energy_between(Particle &p1, Particle &p2) {
 
     //Check if particles are bonded
     if (p1.has_connection(p2)){
+        energy += eps_bond;
         if (bonded_potential_type=="harmonic"){
             energy += get_harmonic_potential(dist, K, l0);
         }
@@ -469,6 +472,24 @@ double System::get_energy_between(Particle &p1, Particle &p2) {
         else{
             std::cout << "WARNING: non-bonded potential type not recognized!" << std::endl;
         }
+    }
+
+    return energy;
+}
+
+double System::get_bonded_energy(Particle &p1, Particle &p2) {
+    double energy = eps_bond;
+    double dist = get_dist(p1, p2);
+
+    if (bonded_potential_type=="harmonic"){
+        energy += get_harmonic_potential(dist, K, l0);
+    }
+    else if (bonded_potential_type=="fene"){
+        energy += get_fene_potential(dist, K, l0, drmax);
+    }
+    else if (bonded_potential_type=="none"){}
+    else{
+        std::cout << "WARNING: bonded potential type not recognized!" << std::endl;
     }
 
     return energy;
