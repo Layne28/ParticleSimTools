@@ -10,7 +10,6 @@ TEST_CASE("Solver")
     ParamDict defaultParams;
     gsl_rng *myGen = CustomRandom::init_rng(1);
     defaultParams.add_entry("k0_bond", "1.0");
-    defaultParams.add_entry("eps_bond", "2.0");
     defaultParams.add_entry("kT", "1.0");
     defaultParams.add_entry("particle_protocol", "uniform_lattice");
     defaultParams.add_entry("dim", "1");
@@ -26,12 +25,10 @@ TEST_CASE("Solver")
     {
         //Generate bond lifetimes for different realizations
         int nsim=10000;
-        double dt;
         double lifetimes[nsim] = {0};
         for(int s=0; s<nsim; s++){
             System theSys(defaultParams, myGen);
             Solver solver(theSys, defaultParams, myGen);
-            dt = theSys.dt;
 
             //Only one check should be necessary here
             if(s==0){
@@ -49,7 +46,6 @@ TEST_CASE("Solver")
                 theSys.time++;
             }
         }
-        //for(int s=0; s<nsim; s++) std::cout << "Lifetime: " << lifetimes[s] << std::endl;
 
         //Create histogram of lifetimes
         double binwidth=0.1;
@@ -64,8 +60,6 @@ TEST_CASE("Solver")
 
         //Print results
         std::cout << "lifetime\tprobability\tpredicted" << std::endl;
-        //double testsum = 0.0;
-        //double testsum2 = 0.0;
         for(int i=0; i<nbins/3; i++){
             std::cout << i*binwidth << "\t" << histogram[i] << "\t" << std::exp(-(i+0.5)*binwidth)*binwidth << std::endl;
             //Check for more than than 20% relative error in bins with significant probability
@@ -73,22 +67,19 @@ TEST_CASE("Solver")
             if(histogram[i]>0.3*histogram[0]){
                 REQUIRE(std::fabs(histogram[i]-std::exp(-(i+0.5)*binwidth)*binwidth)/(std::exp(-(i+0.5)*binwidth)*binwidth)<0.20); 
             }
-            //testsum += std::exp(-(i)*binwidth)*binwidth;
-            //testsum2 += histogram[i];
         }
-        //std::cout << "test: " << testsum << std::endl;
-        //std::cout << "test2: " << testsum2 << std::endl;
     }
 
     SECTION("Check single bond attachment")
     {
         //Generate time to "react"/form bond for different realizations
-        int nsim=10000;
-        double dt;
+        int nsim=20000;
         double eps_bond;
+        double dt;
         double kT;
         double k_on;
         double rxn_times[nsim] = {0};
+        defaultParams.add_entry("eps_bond", "-2.0");
         for(int s=0; s<nsim; s++){
             std::cout << "Sim. " << s << std::endl;
             System theSys(defaultParams, myGen);
@@ -121,7 +112,7 @@ TEST_CASE("Solver")
         //for(int s=0; s<nsim; s++) std::cout << "Reaction time: " << rxn_times[s] << std::endl;
 
         //Create histogram of rxn times
-        double binwidth=0.5;
+        double binwidth=0.05;
         int nbins = std::round(*std::max_element(rxn_times,rxn_times+nsim)/binwidth)+1;
         double histogram[nbins] = {0};
         for(int s=0; s<nsim; s++){
@@ -151,11 +142,15 @@ TEST_CASE("Solver")
 
     SECTION("Check detailed balance")
     {
-        int nsteps = 10000000;
+        int nsteps = 200000000;
+        //Note: if k_on becomes large as here, need to 
+        //decrease timestep to recover Boltzmann statistics accurately.
+        defaultParams.add_entry("dt", "0.001");
+        defaultParams.add_entry("eps_bond", "-3.0");
         System theSys(defaultParams, myGen);
         Solver solver(theSys, defaultParams, myGen);
 
-        double bond_energy = theSys.eps_bond; //change to reflect strain
+        double bond_energy = theSys.get_bonded_energy(theSys.particles[0], theSys.particles[1]);
 
         int num_bonded = 0;
         int num_unbonded = 0;
@@ -171,7 +166,52 @@ TEST_CASE("Solver")
             }
             theSys.time++;
         }
-        double ratio = (1.0*num_bonded)/num_unbonded;
-        REQUIRE(std::fabs(ratio-std::exp(-bond_energy/theSys.kT))<1e-3);
+        double ratio = (1.0*num_bonded)/(1.0*num_unbonded);
+        std::cout << "Bonded-to-unbonded ratio:" << std::endl;
+        std::cout << "Measured\tPredicted" << std::endl;
+        std::cout << ratio << "\t" << std::exp(-bond_energy/theSys.kT) << std::endl;
+        double prediction = std::exp(-bond_energy/theSys.kT);
+        REQUIRE(std::fabs(ratio-prediction)/prediction<1e-2);
+    }
+
+    SECTION("Check detailed balance for stretched spring")
+    {
+        int nsteps = 200000000;
+        //Note: if k_on becomes large as here, need to 
+        //decrease timestep to recover Boltzmann statistics accurately.
+        defaultParams.add_entry("dt", "0.001");
+        defaultParams.add_entry("l0", "1.0");
+        defaultParams.add_entry("drmax", "0.5");
+        defaultParams.add_entry("K", "1.0");
+        defaultParams.add_entry("eps_bond", "-3.0");
+        defaultParams.add_entry("bonded_potential_type", "fene");
+        System theSys(defaultParams, myGen);
+        Solver solver(theSys, defaultParams, myGen);
+
+        //Stretch the spring
+        theSys.particles[1].pos[0] += 0.3;
+
+        double bond_energy = theSys.get_bonded_energy(theSys.particles[0], theSys.particles[1]);
+
+        int num_bonded = 0;
+        int num_unbonded = 0;
+
+        //Run a trajectory
+        for(int t=0; t<nsteps; t++){
+            solver.update_bonds(theSys, theSys.dt);
+            if(theSys.particles[0].get_num_springs()==1){
+                num_bonded++;
+            }
+            else{
+                num_unbonded++;
+            }
+            theSys.time++;
+        }
+        double ratio = (1.0*num_bonded)/(1.0*num_unbonded);
+        std::cout << "Bonded-to-unbonded ratio:" << std::endl;
+        std::cout << "Measured\tPredicted" << std::endl;
+        std::cout << ratio << "\t" << std::exp(-bond_energy/theSys.kT) << std::endl;
+        double prediction = std::exp(-bond_energy/theSys.kT);
+        REQUIRE(std::fabs(ratio-prediction)/prediction<1e-2);
     }
 }

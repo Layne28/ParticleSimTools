@@ -194,9 +194,50 @@ void Solver::update_bonds(System &theSys, double deet){
     //Don't try making bonds b/t particles further away than 
     //max bond extension
     double max_dist = theSys.l0 + theSys.drmax;
-    if(theSys.do_cell_list){
 
+    if(theSys.do_cell_list){
+        //update cell list if particles have moved out of cells
+        if(theSys.needs_update_cell_list()==1){
+            theSys.create_cell_list();
+        }
+        //Loop over cells (including self)
+        for (int index1 = theSys.N-1; index1 >= 0; index1--) {
+            int icell = theSys.cellndx[index1];
+            int index2 = theSys.head[icell];
+            for (int nc = 0; nc < theSys.cellneigh[icell][0]; nc++) {
+                int jcell = theSys.cellneigh[icell][nc+1];
+                index2 = theSys.head[jcell];
+                while (index2 != -1) {
+                    if(index1>index2){
+                        int pid1 = theSys.particles[index1].get_id();
+                        int pid2 = theSys.particles[index2].get_id();
+                        std::pair<int,int> bond = {pid1, pid2};
+                        //Order small to large, same as broken bonds list
+                        if(pid2<pid1){
+                            bond = {pid2, pid1};
+                        }
+                        //Check if particles are close but not bonded
+                        if(theSys.get_dist(theSys.particles[index1], theSys.particles[index2])<max_dist 
+                            && !(theSys.particles[index1].has_connection(theSys.particles[index2]))){
+                            //Check that this is not a just-broken bond
+                            if(std::find(broken_bonds.begin(), broken_bonds.end(), bond)==broken_bonds.end()){
+                                double bond_energy = theSys.get_bonded_energy(theSys.particles[index1], theSys.particles[index2]);
+                                double k_on = k0*std::exp(-bond_energy/theSys.kT);
+                                double P_attach = 1 - std::exp(-k_on*deet);
+                                double xsi = gsl_rng_uniform(rg);
+                                if (xsi<P_attach){
+                                    Spring::add_spring(theSys.particles[index1], theSys.particles[index2]);
+                                }
+                            }
+                        }
+                    }
+                    index2 = theSys.list[index2];
+                }
+            }
+        }
     }
+
+    //Do O(N^2) loop
     else{
         for(int i=0; i<theSys.N-1; i++){
             for(int j=i+1; j<theSys.N; j++){
