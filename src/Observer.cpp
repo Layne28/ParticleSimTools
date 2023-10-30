@@ -117,6 +117,10 @@ void Observer::dump_h5md(System &theSys, std::string subdir)
         std::vector<std::vector<std::vector<double>>> all_pos(1, std::vector<std::vector<double>>(theSys.N, std::vector<double>(3,0.0)));
         std::vector<std::vector<std::vector<double>>> all_vel(1, std::vector<std::vector<double>>(theSys.N, std::vector<double>(3,0.0)));
         std::vector<std::vector<std::vector<int>>> all_image(1, std::vector<std::vector<int>>(theSys.N, std::vector<int>(3,0)));
+
+        //HDF5 doesn't seem to like variable-length time series data.
+        //Just put in enough memory for any "physically reasonable" bond arrangmenet
+        //And ignore (0,0) bonds in output
         int nbonds = 24*theSys.N; //Max limit to bonds per particle//theSys.get_num_bonds();
         std::vector<std::vector<std::vector<int>>> all_bonds(1, std::vector<std::vector<int>>(nbonds, std::vector<int>(2,0)));
 
