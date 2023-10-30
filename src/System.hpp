@@ -91,6 +91,8 @@ public:
     void set_obs(Observer &anObs);
 
     //Get (some of these could be made static)
+    int get_num_bonds();
+    std::vector<std::vector<int>> get_connectivity();
     arma::vec get_com();
     double get_energy();
     double get_energy_between(Particle &p1, Particle &p2);

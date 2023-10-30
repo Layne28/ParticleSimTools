@@ -243,6 +243,8 @@ void Solver::update_bonds(System &theSys, double deet){
             for(int j=i+1; j<theSys.N; j++){
                 int pid1 = theSys.particles[i].get_id();
                 int pid2 = theSys.particles[j].get_id();
+                if(pid1==pid2) std::cout << "ERROR: DIFFERENT PARTICLE IDS ARE THE SAME" << std::endl;
+                if(i==j) std::cout << "ERROR" << std::endl;
                 std::pair<int,int> bond = {pid1, pid2};
                 //Order small to large, same as broken bonds list
                 if(pid2<pid1){

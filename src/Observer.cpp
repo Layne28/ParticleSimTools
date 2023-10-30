@@ -47,29 +47,12 @@ void Observer::open_h5md(System &theSys, std::string subdir)
     //Sugroups of "connectivity"
     if(theSys.is_network){
         if(theSys.can_bonds_break==0) {
-            //Get connectivity
-            int tot_num_springs = 0;
-            for(int i=0; i<theSys.N; i++) {
-                tot_num_springs += theSys.particles[i].get_num_springs();
-            }
-            std::vector<std::vector<int>> bond_list(tot_num_springs, std::vector<int>(2,0));
+
             std::vector<int> bonds_to;
             std::vector<int> bonds_from;
 
-            int cnt = 0;
-            for(int i=0; i<theSys.N; i++) {
-                for(int j=0; j<theSys.particles[i].get_num_springs(); j++) {
-                    bond_list[cnt][0] = theSys.particles[i].springs[j].node1->get_id();
-                    bond_list[cnt][1] = theSys.particles[i].springs[j].node2->get_id();
-                    cnt++;
-                }
-            }
-            std::sort(bond_list.begin(), bond_list.end(),
-                [](const std::vector<int>& a, const std::vector<int>& b) {
-                if (a[0] == b[0]) return a[1]<b[1];
-                else return a[0]<b[0];
-            });
-            bond_list.erase( unique( bond_list.begin(), bond_list.end() ), bond_list.end() );
+            //Get connectivity
+            std::vector<std::vector<int>> bond_list = theSys.get_connectivity();
             for(int i=0; i<bond_list.size(); i++) {
                 bonds_from.push_back(bond_list[i][0]+1);
                 bonds_to.push_back(bond_list[i][1]+1);
@@ -90,7 +73,7 @@ void Observer::open_h5md(System &theSys, std::string subdir)
             bonds_from_group.write(myRef2);
         }
         else {
-            std::cout << "i/o for changing connectivity not currently supported." << std::endl;
+            Group connectivity = file.createGroup("/particles/all/connectivity");
         }
     }
 
@@ -134,13 +117,18 @@ void Observer::dump_h5md(System &theSys, std::string subdir)
         std::vector<std::vector<std::vector<double>>> all_pos(1, std::vector<std::vector<double>>(theSys.N, std::vector<double>(3,0.0)));
         std::vector<std::vector<std::vector<double>>> all_vel(1, std::vector<std::vector<double>>(theSys.N, std::vector<double>(3,0.0)));
         std::vector<std::vector<std::vector<int>>> all_image(1, std::vector<std::vector<int>>(theSys.N, std::vector<int>(3,0)));
+        int nbonds = 24*theSys.N; //Max limit to bonds per particle//theSys.get_num_bonds();
+        std::vector<std::vector<std::vector<int>>> all_bonds(1, std::vector<std::vector<int>>(nbonds, std::vector<int>(2,0)));
 
         DataSpace part_val_space = DataSpace({1,theSys.N,3},{DataSpace::UNLIMITED, theSys.N,3});
         DataSpace part_t_space = DataSpace({1},{DataSpace::UNLIMITED});
+        DataSpace part_bond_space = DataSpace({1,nbonds,2},{DataSpace::UNLIMITED, nbonds,2});
         DataSetCreateProps props_val;
         props_val.add(Chunking(std::vector<hsize_t>{1,theSys.N,3}));
         DataSetCreateProps props_time;
         props_time.add(Chunking(std::vector<hsize_t>{1}));
+        DataSetCreateProps props_bond;
+        props_bond.add(Chunking(std::vector<hsize_t>{1,nbonds,2}));
 
         //Fill in positions and velocities
         for (int i=0; i<theSys.N; i++) {
@@ -149,6 +137,13 @@ void Observer::dump_h5md(System &theSys, std::string subdir)
                 all_vel[0][i][j] = theSys.particles[i].vel(j);
                 all_image[0][i][j] = theSys.image[i][j];
             }
+        }
+
+        //Get bonds
+        std::vector<std::vector<int>> bond_list = theSys.get_connectivity();
+        for(int i=0; i<theSys.get_num_bonds(); i++){
+            all_bonds[0][i][0] = bond_list[i][0];
+            all_bonds[0][i][1] = bond_list[i][1];
         }
 
         //Update position
@@ -256,6 +251,42 @@ void Observer::dump_h5md(System &theSys, std::string subdir)
             value_dim[0] += 1;
             value.resize(value_dim);
             value.select({value_dim_old[0],0,0},{1,theSys.N,3}).write(all_image);
+        }
+
+        //Update connectivity
+        if (!file.exist("/particles/all/connectivity/step")) {
+            //std::cout << "creating connectivity data" << std::endl;
+            DataSet step = file.createDataSet<int>("/particles/all/connectivity/step", part_t_space, props_time);
+            step.write(theSys.time);
+            DataSet time = file.createDataSet<double>("/particles/all/connectivity/time", part_t_space, props_time);
+            time.write(theSys.time*theSys.dt);
+            DataSet value = file.createDataSet<int>("/particles/all/connectivity/value", part_bond_space, props_bond);
+            value.select({0,0,0},{1,nbonds,2}).write(all_bonds);
+        }
+        else {
+            //Update step
+            DataSet step = file.getDataSet("/particles/all/connectivity/step");
+            std::vector<long unsigned int> step_dim = step.getDimensions();
+            std::vector<long unsigned int> step_dim_old = step_dim;
+            step_dim[0] += 1;
+            step.resize(step_dim);
+            step.select(step_dim_old,{1}).write(theSys.time);
+
+            //Update time
+            DataSet time = file.getDataSet("/particles/all/connectivity/time");
+            std::vector<long unsigned int> time_dim = time.getDimensions();
+            std::vector<long unsigned int> time_dim_old = time_dim;
+            time_dim[0] += 1;
+            time.resize(time_dim);
+            time.select(time_dim_old,{1}).write(theSys.time*theSys.dt);
+
+            //Update connectivity values
+            DataSet value = file.getDataSet("/particles/all/connectivity/value");
+            std::vector<long unsigned int> value_dim = value.getDimensions();
+            std::vector<long unsigned int> value_dim_old = value_dim;
+            value_dim[0] += 1;
+            value.resize(value_dim);
+            value.select({value_dim_old[0],0,0},{1,nbonds,2}).write(all_bonds);
         }
 
         //Update energy

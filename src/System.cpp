@@ -401,6 +401,40 @@ void System::do_spring_init() {
     }
 }
 
+int System::get_num_bonds() {
+    int tot_num_springs = 0;
+    for(int i=0; i<N; i++) {
+        tot_num_springs += particles[i].get_num_springs();
+    } 
+    return tot_num_springs/2;
+}
+
+std::vector<std::vector<int>> System::get_connectivity() {
+
+    int tot_num_springs = 0;
+    for(int i=0; i<N; i++) {
+        tot_num_springs += particles[i].get_num_springs();
+    }
+    std::vector<std::vector<int>> bond_list(tot_num_springs, std::vector<int>(2,0));
+
+    int cnt = 0;
+    for(int i=0; i<N; i++) {
+        for(int j=0; j<particles[i].get_num_springs(); j++) {
+            bond_list[cnt][0] = particles[i].springs[j].node1->get_id();
+            bond_list[cnt][1] = particles[i].springs[j].node2->get_id();
+            cnt++;
+        }
+    }
+    std::sort(bond_list.begin(), bond_list.end(),
+        [](const std::vector<int>& a, const std::vector<int>& b) {
+        if (a[0] == b[0]) return a[1]<b[1];
+        else return a[0]<b[0];
+    });
+    bond_list.erase( unique( bond_list.begin(), bond_list.end() ), bond_list.end() );
+
+    return bond_list;
+}
+
 void System::zero_com() {
 
     arma::vec com(dim, arma::fill::zeros);
@@ -616,10 +650,13 @@ arma::vec System::get_force(Particle &p1) {
 
             Particle *p2 = p1.springs[j].node2;
             if(p1.is_equal(*p2)) p2 = p1.springs[j].node1;
+            if(p1.is_equal(*p2)){
+                std::cout << "ERROR: A bond of a particle to itself has been created!" << std::endl;
+            }
 
             arma::vec disp = get_disp_vec(p1, *p2);
             double dist = get_dist(p1, *p2);
-            if (dist<1e-15) throw std::runtime_error("ERROR: attempting to divide by zero in force calculation!");
+            if (dist<1e-15) throw std::runtime_error("ERROR: attempting to divide by zero in bonded force calculation!");
 
             if (bonded_potential_type=="harmonic"){
                 force += get_harmonic_force(dist, disp, my_K, my_l0);
@@ -637,7 +674,7 @@ arma::vec System::get_force(Particle &p1) {
         for (int j=0; j<N; j++) {
             if (particles[j].get_id()!=p1.get_id()) {
                 double dist = get_dist(p1, particles[j]);
-                if (dist<1e-15) throw std::runtime_error("ERROR: attempting to divide by zero in force calculation!");
+                if (dist<1e-15) throw std::runtime_error("ERROR: attempting to divide by zero in nonbonded force calculation!");
                 if (dist<=rcut) {
                     arma::vec disp = get_disp_vec(p1, particles[j]);
                     if (nonbonded_potential_type=="lj"){
