@@ -186,6 +186,7 @@ void Solver::update_bonds(System &theSys, double deet){
             Particle *p2 = theSys.particles[i].springs[to_remove.back()].node2;
             if(theSys.particles[i].is_equal(*p2)) p2 = theSys.particles[i].springs[to_remove.back()].node1;
             Spring::remove_spring(theSys.particles[i], *p2);
+            //std::cout << "Broke a bond!" << std::endl;
             to_remove.pop_back();
         }
     }
