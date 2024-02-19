@@ -5,8 +5,8 @@ namespace fs = experimental::filesystem;
 
 void determine_seed(long unsigned int &seed, std::string seed_file, ParamDict &myParams)
 {
+    myParams.add_entry("output_dir", myParams.get_value("output_dir") + "/seed=" + std::to_string(seed));
     if(seed_file!="" && fs::exists(seed_file)){
-        myParams.add_entry("output_dir", myParams.get_value("output_dir") + "/seed=" + std::to_string(seed));
         std::cout << "Reading seed from file." << std::endl;
         std::ifstream file(seed_file);
         file.exceptions(std::ifstream::failbit);

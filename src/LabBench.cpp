@@ -19,14 +19,18 @@ LabBench::LabBench(ParamDict& theParams, gsl_rng*& theGen) : sys(theParams, theG
 
 LabBench::~LabBench() {}
 
-void LabBench::run(int nstps, std::string subdir, int net_freq, int therm_freq)
+void LabBench::run(int nstps, std::string subdir, int net_freq, int therm_freq, int noisegen_freq)
 {
     if (nstps==-1) nstps = this->production_steps;
     if (net_freq==-1) net_freq = this->obs.particles_freq;
     if (therm_freq==-1) therm_freq = this->obs.thermo_freq;
+    if (noisegen_freq==-1) noisegen_freq = this->obs.noise_freq;
 
     if (obs.do_h5md) {
         obs.open_h5md(sys, subdir);
+    }
+    if (obs.do_output_noise) {
+        obs.open_h5angen(solver, subdir);
     }
 
     for (int i=0; i<nstps; i++) {
@@ -36,6 +40,11 @@ void LabBench::run(int nstps, std::string subdir, int net_freq, int therm_freq)
         if (obs.do_h5md) {
             if (i%net_freq==0) {
                 obs.dump_h5md(sys, subdir);
+            }
+        }
+        if (obs.do_output_noise) {
+            if (i%noisegen_freq==0) {
+                obs.dump_h5angen(solver, sys, subdir);
             }
         }
         //Advance dynamics

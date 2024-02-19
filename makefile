@@ -24,8 +24,8 @@ TEST_SOURCES := $(wildcard $(TEST_SRC_DIR)/*.cpp)
 HEADERS := $(wildcard $(SRC_DIR)/*.hpp)
 TEST_HEADERS := $(wildcard $(TEST_SRC_DIR)/*.hpp)
 
-#CXX := g++
-CXX := h5c++
+CXX := g++
+#CXX := h5c++
 
 SHELL = /bin/sh
 

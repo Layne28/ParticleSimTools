@@ -13,8 +13,12 @@
 #include "System.hpp"
 #include <angen/Generator.hpp>
 
+class System;
+
 class Solver
 {
+private:
+    friend class System;
 public:
 
     /*** Variables ***/
@@ -31,6 +35,7 @@ public:
     int nx = 4;
     int ny = 4;
     int nz = 4;
+    std::string interpolation = "none";
     
     gsl_rng *rg;
 
@@ -53,9 +58,7 @@ public:
 
     //active noise methods
     std::vector<arma::vec> get_active_noise_forces(System &theSys, Generator &gen);
-
-private:
-    Generator* anGen; //active noise generator
+    std::unique_ptr<Generator> anGen; //active noise generator
 };
 
 #endif

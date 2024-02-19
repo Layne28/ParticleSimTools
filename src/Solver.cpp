@@ -15,6 +15,7 @@ Solver::Solver(System &theSys, ParamDict &theParams, gsl_rng *&the_rg)
     if(theParams.is_key("nx")) nx = std::stoi(theParams.get_value("nx")); 
     if(theParams.is_key("ny")) ny = std::stoi(theParams.get_value("ny")); 
     if(theParams.is_key("nz")) nz = std::stoi(theParams.get_value("nz")); 
+    if(theParams.is_key("interpolation")) interpolation = theParams.get_value("interpolation"); 
     //Active noise generator will generate values with variance va^2
     theParams.add_entry("D", std::to_string(va*va)); 
 
@@ -44,7 +45,7 @@ Solver::Solver(System &theSys, ParamDict &theParams, gsl_rng *&the_rg)
         theParams.add_entry("dz", out_z.str());
     }
     
-    anGen = new Generator(theParams, the_rg);
+    anGen = std::make_unique<Generator>(theParams, the_rg);
     //Check that active noise gen. params are consistent with particle system
     if(fabs(anGen->Lx-theSys.edges[0])>1e-10) {
         std::cout << "ERROR! System and Active Noise Generator do not have the same size (" << std::fixed << theSys.edges[0] << " vs " << anGen->Lx << ")." << std::endl;
@@ -57,7 +58,6 @@ Solver::Solver(System &theSys, ParamDict &theParams, gsl_rng *&the_rg)
 
 Solver::~Solver() 
 {
-    delete anGen;
 }
 
 void Solver::update(System &theSys, double deet, int level)
@@ -96,6 +96,7 @@ void Solver::update(System &theSys, double deet, int level)
 
     if(do_adaptive_timestep){
         //Check whether the new position will result in a really large force
+        //TODO: How to modify this for bond breaking?
         std::vector<arma::vec> new_forces = theSys.get_forces();
         double max_force = 0;
         for(int i=0; i<theSys.N; i++){
@@ -352,14 +353,64 @@ std::vector<arma::vec> Solver::get_active_noise_forces(System &theSys, Generator
     for(int i=0; i<theSys.N; i++)
     {
         arma::vec pos = theSys.particles[i].pos;
-        int *indices = new int[theSys.dim];
+        std::vector<int> indices(theSys.dim, 0);
         for(int k=0; k<theSys.dim; k++){
             indices[k] = int((pos(k)+0.5*theSys.edges[k])/gen.spacing[k]);
         }
         for(int k=0; k<theSys.dim; k++){
-            if(theSys.dim==1) active_forces[i](k) = xi(indices[0])(k).real();
-            else if(theSys.dim==2) active_forces[i](k) = xi(indices[0],indices[1])(k).real();
-            else active_forces[i](k) = xi(indices[0],indices[1],indices[2])(k).real();
+            if(theSys.dim==1){
+                if (interpolation=="none"){
+                    active_forces[i](k) = xi(indices[0])(k).real();
+                }
+                else if (interpolation=="linear"){
+                    //Treat noise as being at midpoint xmi of cell i.
+                    //If particle has position xj, xmi<=xj<xmi+dx/2,
+                    //then compute noise at x as: 
+                    //xi(x) = l*xi(xm(i+1)) + (1-l)*xi(xmi), l=(x-xmi)/dx
+                    //If particle has position xj, xmi-dx/2<=xj<xmi,
+                    //then compute noise at x as: 
+                    //xi(x) = l*xi(xm(i+1)) + (1-l)*xi(xmi), l=(x-xmi)/dx
+                    double scaled_pos = (pos(k)+0.5*theSys.edges[k])/gen.spacing[k];
+                    double whole_pos = floor(scaled_pos)
+                    double decimal_pos = scaled_pos - whole_pos;
+                    if(decimal_pos)>=0.5{
+                        int ind = int((pos(k)+0.5*theSys.edges[k])/gen.spacing[k]);
+                        double xi1 = xi(ind)(k).real();
+                        double xi2 = xi((ind+1)%nx)(k).real();
+                        double ell = scaled_pos - (whole_pos + 0.5);
+                        double interp_xi = ell*xi2 + (1-ell)*xi1;
+                    }
+                    else{
+                        int ind = int((pos(k)+0.5*theSys.edges[k])/gen.spacing[k]);
+                        double xi1 = xi(ind)(k).real();
+                        double xi0 = xi((ind-1+nx)%nx)(k).real();
+                        double ell = scaled_pos - (whole_pos - 0.5);
+                        double interp_xi = ell*xi1 + (1-ell)*xi0;
+                    }
+                }
+                else{
+                    std::cout << "ERROR: interpolation method not recognized." << std::endl;
+                    exit(-1);
+                }
+            }
+            else if(theSys.dim==2){
+                if (interpolation=="none"){
+                    active_forces[i](k) = xi(indices[0],indices[1])(k).real();
+                }
+                else{
+                    std::cout << "ERROR: interpolation method not recognized." << std::endl;
+                    exit(-1);
+                }
+            }
+            else{
+                if (interpolation=="none"){
+                    active_forces[i](k) = xi(indices[0],indices[1],indices[2])(k).real();
+                }
+                else{
+                    std::cout << "ERROR: interpolation method not recognized." << std::endl;
+                    exit(-1);
+                }
+            } 
         } 
     }
 

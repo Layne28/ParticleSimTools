@@ -79,12 +79,14 @@ System::System(ParamDict &theParams, gsl_rng *&the_rg) {
             std::cout << "Error: cell list dimensions computed incorrectly." << std::endl;
             exit(-1);
         }
-        head = new int[ncell_x*ncell_y];
-        list = new int[N];
-        cellndx = new int[N];
-        cellneigh = new int *[ncell_x*ncell_y];
-        for(int i=0; i<ncell_x*ncell_y; i++) {
-            cellneigh[i] = new int[9]; //at most 8 neighbor cells in 2D
+        for(int i=0; i<ncell_x*ncell_y; i++){
+            head.push_back(0);
+            std::vector<int> v(10, 0);
+            cellneigh.push_back(v);
+        }
+        for(int i=0; i<N; i++){
+            list.push_back(0);
+            cellndx.push_back(0);
         }
         fill_cellneigh();
     }
@@ -92,16 +94,6 @@ System::System(ParamDict &theParams, gsl_rng *&the_rg) {
 
 System::~System() {
 
-    //clean up cell list
-    if(do_cell_list==1){
-        delete[] head;
-        delete[] list;
-        delete[] cellndx;
-        for(int i=0; i<ncell_x*ncell_y; i++) {
-            delete[] cellneigh[i];
-        }
-        delete[] cellneigh;
-    }
 }
 
 void System::do_paramdict_assign(ParamDict &theParams) {
@@ -178,30 +170,32 @@ void System::do_particle_init() {
     //First compute N
     //If phi is specified, compute N based on phi
     if(phi>-1.0){
-        double volume = 1.0;
-        for(int i=0; i<dim; i++){
-            volume *= edges[i];
+        if (phi==0.0) N = 1;
+        else{
+            double volume = 1.0;
+            for(int i=0; i<dim; i++){
+                volume *= edges[i];
+            }
+            double particle_volume;
+            if (dim==1) {
+                particle_volume = sigma;
+            }
+            else if (dim==2) {
+                particle_volume = M_PI*(sigma/2)*(sigma/2);
+            }
+            else if (dim==3) {
+                particle_volume = (4.0/3.0)*M_PI*(sigma/2)*(sigma/2)*(sigma/2);
+            }
+            else {
+                std::cout << "Error: " << dim << "-dimensional simulation not supported." << std::endl;
+                exit(-1);
+            }
+            N = std::round(phi*volume/particle_volume); 
         }
-        double particle_volume;
-        if (dim==1) {
-            particle_volume = sigma;
-        }
-        else if (dim==2) {
-            particle_volume = M_PI*(sigma/2)*(sigma/2);
-        }
-        else if (dim==3) {
-            particle_volume = (4.0/3.0)*M_PI*(sigma/2)*(sigma/2)*(sigma/2);
-        }
-        else {
-            std::cout << "Error: " << dim << "-dimensional simulation not supported." << std::endl;
-            exit(-1);
-        }
-        N = std::round(phi*volume/particle_volume); 
     }
-    if (phi==0.0) N = 1;
 
     //If it's a lattice, then compute N based on lattice parameters
-    if (particle_protocol.find("lattice") != std::string::npos){
+    else if (particle_protocol.find("lattice") != std::string::npos){
         if(particle_protocol=="triangular_lattice" || particle_protocol=="square_lattice"){
             N = unit_cells[0]*unit_cells[1];
         }
@@ -231,7 +225,7 @@ void System::do_particle_init() {
     //Create particles and assign their positions
     if (particle_protocol=="zeros") {
         for (int i=0; i<N; i++) {
-            Particle p(dim);
+            Particle p(dim, is_network);
             particles.push_back(p);
         }
     }
@@ -242,7 +236,7 @@ void System::do_particle_init() {
             int found = 0;
             while (found==0) {
                 //Initialize a new particle at a random position
-                Particle p(dim);
+                Particle p(dim, is_network);
                 for (int j=0; j<dim; j++) {
                     p.pos[j] = edges[j]*(gsl_rng_uniform(rg)-0.5);
                 }
@@ -262,7 +256,7 @@ void System::do_particle_init() {
     }
     else if (particle_protocol=="uniform_lattice") {
         for(int i=0; i<unit_cells[0]; i++){
-            Particle p(1);
+            Particle p(1, is_network);
             p.pos[0] = a*i-unit_cells[0]*a/2;
             particles.push_back(p);
         }
@@ -279,15 +273,15 @@ void System::do_particle_init() {
                 exit(-1);
             }
             int count = 0;
-            //double a = sqrt(edges[0]*edges[1]/((sqrt(3.0)*nx*ny/2)));
-            std::cout << "spacing: " << a << std::endl;
+            double a0 = sqrt(edges[0]*edges[1]/((sqrt(3.0)*nx*ny/2)));
+            std::cout << "spacing: " << a0 << std::endl;
             for(int i=0; i<nx; i++){
                 for(int j=0; j<ny; j++){
                     if (count < N){
-                        Particle p(2);
-                        p.pos[0] = i*a;//-edges[0]/2.0;
-                        if (j%2==1) p.pos[0] += 0.5*a;
-                        p.pos[1] = (sqrt(3.0)/2.0)*j*a;//-edges[1]/2.0;
+                        Particle p(2, is_network);
+                        p.pos[0] = i*a0;//-edges[0]/2.0;
+                        if (j%2==1) p.pos[0] += 0.5*a0;
+                        p.pos[1] = (sqrt(3.0)/2.0)*j*a0;//-edges[1]/2.0;
                         p.pos[2] = 0.0;
                         p.old_pos = p.pos;
                         count++;
@@ -310,10 +304,10 @@ void System::do_particle_init() {
             }
         }
         //If N specified by unit cells
-        else{
+        else if(phi<0.0){
             for(int i=0; i<unit_cells[0]; i++){
                 for(int j=0; j<unit_cells[1]; j++){
-                    Particle p(2);
+                    Particle p(2, is_network);
                     p.pos[0] = a*i-unit_cells[0]*a/2;
                     if (j%2==1) p.pos[0] += 0.5*a;
                     p.pos[1] = (sqrt(3.0)/2.0)*a*j-unit_cells[1]*a/2;
@@ -324,11 +318,15 @@ void System::do_particle_init() {
             edges[0] = a*unit_cells[0];
             edges[1] = sqrt(3.0)/2.0*a*unit_cells[1];
         }
+        else{
+            Particle p(dim, is_network);
+            particles.push_back(p);
+        }
     }
     else if (particle_protocol=="square_lattice") {
         for(int i=0; i<unit_cells[0]; i++){
             for(int j=0; j<unit_cells[1]; j++){
-                Particle p(2);
+                Particle p(2, is_network);
                 p.pos[0] = a*i-unit_cells[0]*a/2;
                 p.pos[1] = a*j-unit_cells[1]*a/2;
                 particles.push_back(p);
@@ -345,10 +343,10 @@ void System::do_particle_init() {
         for(int i=0; i<Nx; i++){
             for(int j=0; j<Ny; j++){
                 for(int k=0; k<Nz; k++){
-                    Particle p1(3);
-                    Particle p2(3);
-                    Particle p3(3);
-                    Particle p4(3);
+                    Particle p1(3, is_network);
+                    Particle p2(3, is_network);
+                    Particle p3(3, is_network);
+                    Particle p4(3, is_network);
                     p1.set_pos({a*i-Nx*a/2, a*j-Ny*a/2, a*k-Nz*a/2});
                     p2.set_pos({a*(i+0.5)-Nx*a/2, a*(j+0.5)-Ny*a/2, a*k-Nz*a/2});
                     p3.set_pos({a*(i+0.5)-Nx*a/2, a*j-Ny*a/2, a*(k+0.5)-Nz*a/2});
@@ -377,6 +375,11 @@ void System::do_particle_init() {
             for(int k=0; k<dim; k++){
                 particles[i].self_prop_vel(k) = gsl_ran_gaussian(rg, sqrt(particles[i].aoup_D0/particles[i].aoup_tau));
             }
+        }
+    }
+    else{
+        for(int i=0; i<N; i++){
+            particles[i].aoup_D0 = 0.0;
         }
     }
 }
@@ -699,7 +702,12 @@ arma::vec System::get_force_from(Particle &p1, Particle &p2) {
     
     arma::vec disp = get_disp_vec(p1, p2);
     double dist = get_dist(p1, p2);
-    if (dist<1e-15) throw std::runtime_error("ERROR: attempting to divide by zero in force calculation!");
+    if (dist<1e-15){
+	std::cout << p1.get_id() << " " << p2.get_id() << std::endl;
+    std::cout << p1.pos << std::endl;
+    std::cout << p2.pos << std::endl;
+	throw std::runtime_error("ERROR: attempting to divide by zero in force calculation!");
+    }
 
     //Bonded force
     if(p1.has_connection(p2)){
@@ -945,8 +953,11 @@ void System::create_cell_list() {
 // find neighboring cells of each cell
 //TODO: update this for dim!=2
 void System::fill_cellneigh() {
-    int icell, jcell, nneigh;
-    int jx, jy;
+    int icell = 0;
+    int jcell = 0;
+    int nneigh;
+    int jx = 0;
+    int jy = 0;
     for (int ix = 0; ix < ncell_x; ix++) {
         for (int iy = 0; iy < ncell_y; iy++) {
             icell = ix + iy*ncell_x;

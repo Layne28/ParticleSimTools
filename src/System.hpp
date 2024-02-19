@@ -63,12 +63,13 @@ public:
 
     //Cell list data structures (assume 2d for now)
     //See A&T 5.3.2
-    int ncell_x, ncell_y;
+    int ncell_x = 0;
+    int ncell_y = 0;
     double cellsize_x, cellsize_y;
-    int *head;       //first particle in each cell
-    int *list;       //list of particles in cell
-    int *cellndx;    //which cell each particle belongs to
-    int **cellneigh; //each cell keeps list of its neighboring cells
+    std::vector<int> head;       //first particle in each cell
+    std::vector<int> list;       //list of particles in cell
+    std::vector<int> cellndx;    //which cell each particle belongs to
+    std::vector<std::vector<int>> cellneigh; //each cell keeps list of its neighboring cells
 
 
     NeighborGrid<Particle, 2> *grid;

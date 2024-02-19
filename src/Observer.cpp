@@ -5,6 +5,8 @@ Observer::Observer(ParamDict &theParams)
     if(theParams.is_key("output_dir")) output_dir = theParams.get_value("output_dir") + "/";
     if(theParams.is_key("particles_freq")) particles_freq = std::stoi(theParams.get_value("particles_freq"));
     if(theParams.is_key("thermo_freq")) thermo_freq = std::stoi(theParams.get_value("thermo_freq"));
+    if(theParams.is_key("noise_freq")) noise_freq = std::stoi(theParams.get_value("noise_freq"));
+    if(theParams.is_key("do_output_noise")) do_output_noise = std::stoi(theParams.get_value("do_output_noise"));
 
     fs::create_directories(output_dir);
 }
@@ -333,4 +335,13 @@ void Observer::dump_h5md(System &theSys, std::string subdir)
     {
         std::cerr << err.what() << std::endl;
     }
+}
+
+void Observer::open_h5angen(Solver &theSolver, std::string subdir){
+    theSolver.anGen->open_h5(output_dir + subdir);
+}
+
+void Observer::dump_h5angen(Solver &theSolver, System &theSys, std::string subdir){
+    arma::field<arma::cx_vec> xi_r = theSolver.anGen->get_xi_r(1);
+    theSolver.anGen->save_field(xi_r, output_dir + subdir, theSys.time/theSys.dt, theSys.dt);
 }

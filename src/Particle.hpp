@@ -31,7 +31,9 @@ public:
     arma::vec self_prop_vel;
 
     //constructor
-    Particle(int dim, int is_an_aoup=0, double my_aoup_D0=0.0, double my_aoup_tau=0.0);
+    Particle(int dim);
+    Particle(int dim, int is_a_node);
+    Particle(int dim, int is_a_node, int is_an_aoup, double my_aoup_D0, double my_aoup_tau);
 
     //destructor
     ~Particle();

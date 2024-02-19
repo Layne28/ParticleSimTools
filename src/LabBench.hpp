@@ -41,7 +41,7 @@ public:
     ~LabBench();
 
     //run trajectory
-    void run(int nstps=-1, std::string subdir="/", int net_freq=-1, int therm_freq=-1);
+    void run(int nstps=-1, std::string subdir="/", int net_freq=-1, int therm_freq=-1, int noisegen_freq=-1);
 
     //experiments
     void do_experiment(std::string expt); //TODO: keep this Public, move rest to private
