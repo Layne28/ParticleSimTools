@@ -363,30 +363,11 @@ std::vector<arma::vec> Solver::get_active_noise_forces(System &theSys, Generator
                     active_forces[i](k) = xi(indices[0])(k).real();
                 }
                 else if (interpolation=="linear"){
-                    //Treat noise as being at midpoint xmi of cell i.
-                    //If particle has position xj, xmi<=xj<xmi+dx/2,
-                    //then compute noise at x as: 
-                    //xi(x) = l*xi(xm(i+1)) + (1-l)*xi(xmi), l=(x-xmi)/dx
-                    //If particle has position xj, xmi-dx/2<=xj<xmi,
-                    //then compute noise at x as: 
-                    //xi(x) = l*xi(xm(i+1)) + (1-l)*xi(xmi), l=(x-xmi)/dx
                     double scaled_pos = (pos(k)+0.5*theSys.edges[k])/gen.spacing[k];
-                    double whole_pos = floor(scaled_pos)
-                    double decimal_pos = scaled_pos - whole_pos;
-                    if(decimal_pos)>=0.5{
-                        int ind = int((pos(k)+0.5*theSys.edges[k])/gen.spacing[k]);
-                        double xi1 = xi(ind)(k).real();
-                        double xi2 = xi((ind+1)%nx)(k).real();
-                        double ell = scaled_pos - (whole_pos + 0.5);
-                        double interp_xi = ell*xi2 + (1-ell)*xi1;
-                    }
-                    else{
-                        int ind = int((pos(k)+0.5*theSys.edges[k])/gen.spacing[k]);
-                        double xi1 = xi(ind)(k).real();
-                        double xi0 = xi((ind-1+nx)%nx)(k).real();
-                        double ell = scaled_pos - (whole_pos - 0.5);
-                        double interp_xi = ell*xi1 + (1-ell)*xi0;
-                    }
+                    double f0 = xi((ind-1+nx)%nx)(k).real();
+                    double f1 = xi(ind)(k).real();
+                    double f2 = xi((ind+1)%nx)(k).real();
+                    active_forces[i](k) = interpolate_1d(scaled_pos, f0, f1, f2);
                 }
                 else{
                     std::cout << "ERROR: interpolation method not recognized." << std::endl;
@@ -439,5 +420,27 @@ void Solver::update_self_prop_vel(System &theSys, int index, double deet){
     for(int k=0; k<theSys.dim; k++){
         theSys.particles[index].self_prop_vel[k] += (-theSys.particles[index].self_prop_vel[k]/tau)*deet + sqrt(2*D0)/tau*gsl_ran_gaussian(rg, sqrt(deet));
         //std::cout << theSys.particles[index].self_prop_vel(k) << std::endl;
+    }
+}
+
+double Solver::interpolate_1d((double scaled_pos, double f0, double f1, double f2)){
+    //Treat noise as being at midpoint xmi of cell i.
+    //If particle has position xj, xmi<=xj<xmi+dx/2,
+    //then compute noise at x as: 
+    //xi(x) = l*xi(xm(i+1)) + (1-l)*xi(xmi), l=(x-xmi)/dx
+    //If particle has position xj, xmi-dx/2<=xj<xmi,
+    //then compute noise at x as: 
+    //xi(x) = l*xi(xm(i+1)) + (1-l)*xi(xmi), l=(x-xmi)/dx
+    double whole_pos = floor(scaled_pos)
+    double decimal_pos = scaled_pos - whole_pos;
+    if(decimal_pos)>=0.5{
+        int ind = int(scaled_pos);
+        double ell = scaled_pos - (whole_pos + 0.5);
+        double interp_xi = ell*f2 + (1-ell)*f1;
+    }
+    else{
+        int ind = int(scaled_pos);
+        double ell = scaled_pos - (whole_pos - 0.5);
+        double interp_xi = ell*f1 + (1-ell)*f0;
     }
 }
