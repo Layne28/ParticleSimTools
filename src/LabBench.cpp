@@ -26,10 +26,10 @@ void LabBench::run(int nstps, std::string subdir, int net_freq, int therm_freq, 
     if (therm_freq==-1) therm_freq = this->obs.thermo_freq;
     if (noisegen_freq==-1) noisegen_freq = this->obs.noise_freq;
 
-    if (obs.do_h5md) {
+    if (obs.do_h5md==1) {
         obs.open_h5md(sys, subdir);
     }
-    if (obs.do_output_noise) {
+    if (obs.do_output_noise==1) {
         obs.open_h5angen(solver, subdir);
     }
 
