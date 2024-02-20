@@ -363,7 +363,7 @@ std::vector<arma::vec> Solver::get_active_noise_forces(System &theSys, Generator
                     active_forces[i](k) = xi(indices[0])(k).real();
                 }
                 else if (interpolation=="linear"){
-                    double scaled_pos = (pos(k)+0.5*theSys.edges[k])/gen.spacing[k];
+                    double scaled_pos = (pos(0)+0.5*theSys.edges[0])/gen.spacing[0];
                     double closest = std::round(scaled_pos);
                     int ind1,ind2;
                     double ell;
@@ -389,6 +389,44 @@ std::vector<arma::vec> Solver::get_active_noise_forces(System &theSys, Generator
             else if(theSys.dim==2){
                 if (interpolation=="none"){
                     active_forces[i](k) = xi(indices[0],indices[1])(k).real();
+                }
+                else if (interpolation=="linear"){
+                    //Do x stuff
+                    double scaled_pos_x = (pos(0)+0.5*theSys.edges[0])/gen.spacing[0];
+                    double closest_x = std::round(scaled_pos_x);
+                    int ind1_x,ind2_x;
+                    double ell_x;
+                    if(closest_x-scaled_pos_x>0.0){
+                        ind1_x = int(scaled_pos_x);
+                        ind2_x = (ind1_x+1)%nx;
+                        ell_x = scaled_pos_x - std::floor(scaled_pos_x) - 0.5;
+                    }
+                    else{
+                        ind2_x = int(scaled_pos_x);
+                        ind1_x = (ind2_x-1+nx)%nx;
+                        ell_x = scaled_pos_x - std::floor(scaled_pos_x) + 0.5;
+                    }
+                    //Do y stuff
+                    double scaled_pos_y = (pos(1)+0.5*theSys.edges[1])/gen.spacing[1];
+                    double closest_y = std::round(scaled_pos_y);
+                    int ind1_y,ind2_y;
+                    double ell_y;
+                    if(closest_y-scaled_pos_y>0.0){
+                        ind1_y = int(scaled_pos_y);
+                        ind2_y = (ind1_y+1)%ny;
+                        ell_y = scaled_pos_y - std::floor(scaled_pos_y) - 0.5;
+                    }
+                    else{
+                        ind2_y = int(scaled_pos_y);
+                        ind1_y = (ind2_y-1+ny)%ny;
+                        ell_y = scaled_pos_y - std::floor(scaled_pos_y) + 0.5;
+                    }
+                    //Combine
+                    double f11 = xi(ind1_x, ind1_y)(k).real();
+                    double f12 = xi(ind1_x, ind2_y)(k).real();
+                    double f21 = xi(ind2_x, ind1_y)(k).real();
+                    double f22 = xi(ind2_x, ind2_y)(k).real();
+                    active_forces[i](k) = interpolate_2d(ell_x, ell_y, f11, f12, f21, f22);
                 }
                 else{
                     std::cout << "ERROR: interpolation method not recognized." << std::endl;
@@ -463,22 +501,15 @@ double Solver::interpolate_1d(double ell, double f1, double f2){
     return ell*f2 + (1-ell)*f1;
 }
 
-/*
-double Solver::interpolate_2d(double scaled_x, double scaled_y double f11, double f12, double f21, double f22){
+double Solver::interpolate_2d(double ell_x, double ell_y, double f11, double f12, double f21, double f22){
     //Bilinear interpolation
-    double interp_x, interp_y;
-    double whole_pos_x = floor(scaled_pos_x);
-    double decimal_pos_x = scaled_pos_x - whole_pos_x;
-    double whole_pos_y = floor(scaled_pos_y);
-    double decimal_pos_y = scaled_pos_y - whole_pos_y;
-    if(decimal_pos>=0.5){
-        double ell = scaled_pos - (whole_pos + 0.5);
-        interp = ell*f2 + (1-ell)*f1;
-    }
-    else{
-        double ell = scaled_pos - (whole_pos - 0.5);
-        interp = ell*f1 + (1-ell)*f0;
-    }
-    return interp;
+
+    //First interpolate in x
+    double fx1 = ell_x*f21 + (1-ell_x)*f11;
+    double fx2 = ell_x*f22 + (1-ell_x)*f12;
+
+    //Then interpolate in y
+    double fxy = ell_y*fx2 + (1-ell_y)*fx1;
+
+    return fxy;
 }
-*/

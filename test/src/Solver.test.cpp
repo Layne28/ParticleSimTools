@@ -5,7 +5,7 @@
 #include "../../src/System.hpp"
 #include "../../src/CustomRandom.hpp"
 
-TEST_CASE("Interpolation"){
+TEST_CASE("Interpolation_1d"){
     ParamDict defaultParams;
     defaultParams.add_entry("particle_protocol", "zeros");
     defaultParams.add_entry("dim", "1");
@@ -50,16 +50,55 @@ TEST_CASE("Interpolation"){
         REQUIRE(std::fabs(active_noise[0](0)-thenoise)<1e-10);
     }
 
-    /*
-    SECTION("Check greater than midpoint"){
-        double x = 1.6;
-        double f0 = 2.0;
-        double f1 = 3.0;
-        double f2 = 4.0;
-        double interp = solver.interpolate_1d(x, f0, f1, f2);
-        REQUIRE(std::fabs(interp-3.1)<1e-10);
+}
+
+TEST_CASE("Interpolation_2d"){
+    ParamDict defaultParams;
+    defaultParams.add_entry("particle_protocol", "zeros");
+    defaultParams.add_entry("dim", "2");
+    defaultParams.add_entry("phi", "0.0");
+    defaultParams.add_entry("Lx", "3.0");
+    defaultParams.add_entry("Ly", "3.0");
+    defaultParams.add_entry("nx", "6");
+    defaultParams.add_entry("ny", "6");
+    defaultParams.add_entry("is_p_x", "1");
+    defaultParams.add_entry("is_p_y", "1");
+    defaultParams.add_entry("do_cell_list", "0");
+    defaultParams.add_entry("interpolation", "linear");
+
+    gsl_rng *myGen = CustomRandom::init_rng(1);
+    System theSys(defaultParams, myGen);
+    Solver solver(theSys, defaultParams, myGen);
+
+    SECTION("Check 2d interpolation function"){
+        double x = 0.7;
+        double y = 0.2;
+        double f11 = 3.0;
+        double f12 = 4.0;
+        double f21 = 4.0;
+        double f22 = 5.0;
+        double interp = solver.interpolate_2d(x, y, f11, f12, f21, f22);
+        REQUIRE(std::fabs(interp-3.9)<1e-10);
     }
-    */
+
+    SECTION("Check 2d interpolation of noise"){
+        theSys.particles[0].pos[0] = 0.0-theSys.edges[0]/2.0;
+        theSys.particles[0].pos[1] = 0.0-theSys.edges[1]/2.0;
+        std::vector<arma::vec> active_noise = solver.get_active_noise_forces(theSys, *solver.anGen);
+        arma::field<arma::cx_vec> xi = (*solver.anGen).get_xi_r(1);
+
+        //Do interpolation by hand to test
+        double thenoise_x1 = xi(solver.nx-1, 0)(0).real()*0.5 + xi(0,0)(0).real()*0.5;
+        double thenoise_x2 = xi(solver.nx-1, solver.ny-1)(0).real()*0.5 + xi(0,solver.ny-1)(0).real()*0.5;
+        double thenoise_x = thenoise_x1*0.5 + thenoise_x2*0.5;
+
+        double thenoise_y1 = xi(solver.nx-1, 0)(1).real()*0.5 + xi(0,0)(1).real()*0.5;
+        double thenoise_y2 = xi(solver.nx-1, solver.ny-1)(1).real()*0.5 + xi(0,solver.ny-1)(1).real()*0.5;
+        double thenoise_y = thenoise_y1*0.5 + thenoise_y2*0.5;
+
+        REQUIRE(std::fabs(active_noise[0](0)-thenoise_x)<1e-10);
+        REQUIRE(std::fabs(active_noise[0](1)-thenoise_y)<1e-10);
+    }
 
 }
 
