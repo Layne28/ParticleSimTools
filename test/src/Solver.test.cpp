@@ -7,22 +7,50 @@
 
 TEST_CASE("Interpolation"){
     ParamDict defaultParams;
-    defaultParams.add_entry("particle_protocol", "uniform_lattice");
+    defaultParams.add_entry("particle_protocol", "zeros");
     defaultParams.add_entry("dim", "1");
+    defaultParams.add_entry("phi", "0.0");
+    defaultParams.add_entry("Lx", "3.0");
+    defaultParams.add_entry("nx", "6");
+    defaultParams.add_entry("is_p_x", "1");
     defaultParams.add_entry("do_cell_list", "0");
+    defaultParams.add_entry("interpolation", "linear");
+
     gsl_rng *myGen = CustomRandom::init_rng(1);
     System theSys(defaultParams, myGen);
     Solver solver(theSys, defaultParams, myGen);
 
-    SECTION("Check less than midpoint"){
-        double x = 1.2;
-        double f0 = 2.0;
+    SECTION("Check 1d interpolation function"){
+        double x = 0.7;
         double f1 = 3.0;
         double f2 = 4.0;
-        double interp = solver.interpolate_1d(x, f0, f1, f2);
-        REQUIRE(std::fabs(interp-2.7)<1e-10);
+        double interp = solver.interpolate_1d(x, f1, f2);
+        REQUIRE(std::fabs(interp-3.7)<1e-10);
     }
 
+    SECTION("Check 1d interpolation of noise"){
+        theSys.particles[0].pos[0] = 0.0-theSys.edges[0]/2.0;
+        std::vector<arma::vec> active_noise = solver.get_active_noise_forces(theSys, *solver.anGen);
+        arma::field<arma::cx_vec> xi = (*solver.anGen).get_xi_r(1);
+
+        //Do interpolation by hand to test
+        double thenoise = xi(solver.nx-1)(0).real()*0.5 + xi(0)(0).real()*0.5;
+        REQUIRE(std::fabs(active_noise[0](0)-thenoise)<1e-10);
+
+        //Try another position
+        theSys.particles[0].pos[0] = 0.1-theSys.edges[0]/2.0;
+        active_noise = solver.get_active_noise_forces(theSys, *solver.anGen);
+        thenoise = xi(solver.nx-1)(0).real()*0.3 + xi(0)(0).real()*0.7;
+        REQUIRE(std::fabs(active_noise[0](0)-thenoise)<1e-10);
+
+        //One more
+        theSys.particles[0].pos[0] = 2.35-theSys.edges[0]/2.0;
+        active_noise = solver.get_active_noise_forces(theSys, *solver.anGen);
+        thenoise = xi(solver.nx-2)(0).real()*0.8 + xi(solver.nx-1)(0).real()*0.2;
+        REQUIRE(std::fabs(active_noise[0](0)-thenoise)<1e-10);
+    }
+
+    /*
     SECTION("Check greater than midpoint"){
         double x = 1.6;
         double f0 = 2.0;
@@ -31,6 +59,7 @@ TEST_CASE("Interpolation"){
         double interp = solver.interpolate_1d(x, f0, f1, f2);
         REQUIRE(std::fabs(interp-3.1)<1e-10);
     }
+    */
 
 }
 

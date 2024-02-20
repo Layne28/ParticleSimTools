@@ -364,11 +364,22 @@ std::vector<arma::vec> Solver::get_active_noise_forces(System &theSys, Generator
                 }
                 else if (interpolation=="linear"){
                     double scaled_pos = (pos(k)+0.5*theSys.edges[k])/gen.spacing[k];
-                    int ind = int(scaled_pos);
-                    double f0 = xi((ind-1+nx)%nx)(k).real();
-                    double f1 = xi(ind)(k).real();
-                    double f2 = xi((ind+1)%nx)(k).real();
-                    active_forces[i](k) = interpolate_1d(scaled_pos, f0, f1, f2);
+                    double closest = std::round(scaled_pos);
+                    int ind1,ind2;
+                    double ell;
+                    if(closest-scaled_pos>0.0){
+                        ind1 = int(scaled_pos);
+                        ind2 = (ind1+1)%nx;
+                        ell = scaled_pos - std::floor(scaled_pos) - 0.5;
+                    }
+                    else{
+                        ind2 = int(scaled_pos);
+                        ind1 = (ind2-1+nx)%nx;
+                        ell = scaled_pos - std::floor(scaled_pos) + 0.5;
+                    }
+                    double f1 = xi(ind1)(k).real();
+                    double f2 = xi(ind2)(k).real();
+                    active_forces[i](k) = interpolate_1d(ell, f1, f2);
                 }
                 else{
                     std::cout << "ERROR: interpolation method not recognized." << std::endl;
@@ -424,6 +435,7 @@ void Solver::update_self_prop_vel(System &theSys, int index, double deet){
     }
 }
 
+/*
 double Solver::interpolate_1d(double scaled_pos, double f0, double f1, double f2){
     //Treat noise as being at midpoint xmi of cell i.
     //If particle has position xj, xmi<=xj<xmi+dx/2,
@@ -445,3 +457,28 @@ double Solver::interpolate_1d(double scaled_pos, double f0, double f1, double f2
     }
     return interp;
 }
+*/
+
+double Solver::interpolate_1d(double ell, double f1, double f2){
+    return ell*f2 + (1-ell)*f1;
+}
+
+/*
+double Solver::interpolate_2d(double scaled_x, double scaled_y double f11, double f12, double f21, double f22){
+    //Bilinear interpolation
+    double interp_x, interp_y;
+    double whole_pos_x = floor(scaled_pos_x);
+    double decimal_pos_x = scaled_pos_x - whole_pos_x;
+    double whole_pos_y = floor(scaled_pos_y);
+    double decimal_pos_y = scaled_pos_y - whole_pos_y;
+    if(decimal_pos>=0.5){
+        double ell = scaled_pos - (whole_pos + 0.5);
+        interp = ell*f2 + (1-ell)*f1;
+    }
+    else{
+        double ell = scaled_pos - (whole_pos - 0.5);
+        interp = ell*f1 + (1-ell)*f0;
+    }
+    return interp;
+}
+*/
