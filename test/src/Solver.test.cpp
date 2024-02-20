@@ -5,6 +5,35 @@
 #include "../../src/System.hpp"
 #include "../../src/CustomRandom.hpp"
 
+TEST_CASE("Interpolation"){
+    ParamDict defaultParams;
+    defaultParams.add_entry("particle_protocol", "uniform_lattice");
+    defaultParams.add_entry("dim", "1");
+    defaultParams.add_entry("do_cell_list", "0");
+    gsl_rng *myGen = CustomRandom::init_rng(1);
+    System theSys(defaultParams, myGen);
+    Solver solver(theSys, defaultParams, myGen);
+
+    SECTION("Check less than midpoint"){
+        double x = 1.2;
+        double f0 = 2.0;
+        double f1 = 3.0;
+        double f2 = 4.0;
+        double interp = solver.interpolate_1d(x, f0, f1, f2);
+        REQUIRE(std::fabs(interp-2.7)<1e-10);
+    }
+
+    SECTION("Check greater than midpoint"){
+        double x = 1.6;
+        double f0 = 2.0;
+        double f1 = 3.0;
+        double f2 = 4.0;
+        double interp = solver.interpolate_1d(x, f0, f1, f2);
+        REQUIRE(std::fabs(interp-3.1)<1e-10);
+    }
+
+}
+
 TEST_CASE("Solver")
 {
     ParamDict defaultParams;

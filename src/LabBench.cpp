@@ -37,12 +37,12 @@ void LabBench::run(int nstps, std::string subdir, int net_freq, int therm_freq, 
         //Record data
         if (i%info_freq==0) std::cout << "step " << i << std::endl;
 
-        if (obs.do_h5md) {
+        if (obs.do_h5md==1) {
             if (i%net_freq==0) {
                 obs.dump_h5md(sys, subdir);
             }
         }
-        if (obs.do_output_noise) {
+        if (obs.do_output_noise==1) {
             if (i%noisegen_freq==0) {
                 obs.dump_h5angen(solver, sys, subdir);
             }
