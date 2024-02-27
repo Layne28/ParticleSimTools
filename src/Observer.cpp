@@ -44,6 +44,8 @@ void Observer::open_h5md(System &theSys, std::string subdir)
     Group box = file.createGroup("/particles/all/box");
     Group position = file.createGroup("/particles/all/position");
     Group velocity = file.createGroup("/particles/all/velocity");
+    Group conservative_force = file.createGroup("/particles/all/conservative_force");
+    Group active_force = file.createGroup("/particles/all/active_force");
     Group image = file.createGroup("/particles/all/image");
 
     //Sugroups of "connectivity"
@@ -118,6 +120,8 @@ void Observer::dump_h5md(System &theSys, std::string subdir)
         //Create necessary data structures for storage
         std::vector<std::vector<std::vector<double>>> all_pos(1, std::vector<std::vector<double>>(theSys.N, std::vector<double>(3,0.0)));
         std::vector<std::vector<std::vector<double>>> all_vel(1, std::vector<std::vector<double>>(theSys.N, std::vector<double>(3,0.0)));
+        std::vector<std::vector<std::vector<double>>> all_conservative_force(1, std::vector<std::vector<double>>(theSys.N, std::vector<double>(3,0.0)));
+        std::vector<std::vector<std::vector<double>>> all_active_force(1, std::vector<std::vector<double>>(theSys.N, std::vector<double>(3,0.0)));
         std::vector<std::vector<std::vector<int>>> all_image(1, std::vector<std::vector<int>>(theSys.N, std::vector<int>(3,0)));
 
         //HDF5 doesn't seem to like variable-length time series data.
@@ -141,6 +145,8 @@ void Observer::dump_h5md(System &theSys, std::string subdir)
             for (int j=0; j<theSys.dim; j++) {
                 all_pos[0][i][j] = theSys.particles[i].pos(j);
                 all_vel[0][i][j] = theSys.particles[i].vel(j);
+                all_conservative_force[0][i][j] = theSys.particles[i].conservative_force(j);
+                all_active_force[0][i][j] = theSys.particles[i].active_force(j);
                 all_image[0][i][j] = theSys.image[i][j];
             }
         }
@@ -222,6 +228,78 @@ void Observer::dump_h5md(System &theSys, std::string subdir)
             value_dim[0] += 1;
             value.resize(value_dim);
             value.select({value_dim_old[0],0,0},{1,theSys.N,3}).write(all_vel);
+        }
+
+        //Update conservative force
+        if (!file.exist("/particles/all/conservative_force/step")) {
+            //std::cout << "creating conservative_force data" << std::endl;
+            DataSet step = file.createDataSet<int>("/particles/all/conservative_force/step", part_t_space, props_time);
+            step.write(theSys.time);
+            DataSet time = file.createDataSet<double>("/particles/all/conservative_force/time", part_t_space, props_time);
+            time.write(theSys.time*theSys.dt);
+            DataSet value = file.createDataSet<double>("/particles/all/conservative_force/value", part_val_space, props_val);
+            value.select({0,0,0},{1,theSys.N,3}).write(all_conservative_force);
+        }
+        else {
+            //Update step
+            DataSet step = file.getDataSet("/particles/all/conservative_force/step");
+            std::vector<long unsigned int> step_dim = step.getDimensions();
+            std::vector<long unsigned int> step_dim_old = step_dim;
+            step_dim[0] += 1;
+            step.resize(step_dim);
+            step.select(step_dim_old,{1}).write(theSys.time);
+
+            //Update time
+            DataSet time = file.getDataSet("/particles/all/conservative_force/time");
+            std::vector<long unsigned int> time_dim = time.getDimensions();
+            std::vector<long unsigned int> time_dim_old = time_dim;
+            time_dim[0] += 1;
+            time.resize(time_dim);
+            time.select(time_dim_old,{1}).write(theSys.time*theSys.dt);
+
+            //Update conservative_force values
+            DataSet value = file.getDataSet("/particles/all/conservative_force/value");
+            std::vector<long unsigned int> value_dim = value.getDimensions();
+            std::vector<long unsigned int> value_dim_old = value_dim;
+            value_dim[0] += 1;
+            value.resize(value_dim);
+            value.select({value_dim_old[0],0,0},{1,theSys.N,3}).write(all_conservative_force);
+        }
+
+        //Update active force
+        if (!file.exist("/particles/all/active_force/step")) {
+            //std::cout << "creating active_force data" << std::endl;
+            DataSet step = file.createDataSet<int>("/particles/all/active_force/step", part_t_space, props_time);
+            step.write(theSys.time);
+            DataSet time = file.createDataSet<double>("/particles/all/active_force/time", part_t_space, props_time);
+            time.write(theSys.time*theSys.dt);
+            DataSet value = file.createDataSet<double>("/particles/all/active_force/value", part_val_space, props_val);
+            value.select({0,0,0},{1,theSys.N,3}).write(all_active_force);
+        }
+        else {
+            //Update step
+            DataSet step = file.getDataSet("/particles/all/active_force/step");
+            std::vector<long unsigned int> step_dim = step.getDimensions();
+            std::vector<long unsigned int> step_dim_old = step_dim;
+            step_dim[0] += 1;
+            step.resize(step_dim);
+            step.select(step_dim_old,{1}).write(theSys.time);
+
+            //Update time
+            DataSet time = file.getDataSet("/particles/all/active_force/time");
+            std::vector<long unsigned int> time_dim = time.getDimensions();
+            std::vector<long unsigned int> time_dim_old = time_dim;
+            time_dim[0] += 1;
+            time.resize(time_dim);
+            time.select(time_dim_old,{1}).write(theSys.time*theSys.dt);
+
+            //Update active_force values
+            DataSet value = file.getDataSet("/particles/all/active_force/value");
+            std::vector<long unsigned int> value_dim = value.getDimensions();
+            std::vector<long unsigned int> value_dim_old = value_dim;
+            value_dim[0] += 1;
+            value.resize(value_dim);
+            value.select({value_dim_old[0],0,0},{1,theSys.N,3}).write(all_active_force);
         }
 
         //Update image

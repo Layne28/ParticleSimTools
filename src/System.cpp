@@ -491,6 +491,9 @@ double System::get_energy_between(Particle &p1, Particle &p2) {
         else if (bonded_potential_type=="fene"){
             energy += get_fene_potential(dist, K, l0, drmax);
         }
+        else if (bonded_potential_type=="2-12"){
+            energy += get_2_12_potential(dist, K, l0, drmax);
+        }
         else if (bonded_potential_type=="none"){}
         else{
             std::cout << "WARNING: bonded potential type not recognized!" << std::endl;
@@ -523,6 +526,9 @@ double System::get_bonded_energy(Particle &p1, Particle &p2) {
     }
     else if (bonded_potential_type=="fene"){
         energy += get_fene_potential(dist, K, l0, drmax);
+    }
+    else if (bonded_potential_type=="2-12"){
+        energy += get_2_12_potential(dist, K, l0, drmax);
     }
     else if (bonded_potential_type=="none"){}
     else{
@@ -623,6 +629,16 @@ double System::get_fene_potential(double r, double K, double l0, double dr) {
     else return -0.5*K*dr*dr*log(1-((r-l0)/dr)*((r-l0)/dr));
 }
 
+double System::get_2_12_potential(double r, double K, double l0, double dr) {
+
+    double r2 = (r-l0)*(r-l0)/(dr*dr);
+    double r4 = r2*r2;
+    double r8 = r4*r4;
+    double r12 = r8*r4;
+
+    return 0.5*K*(r-l0)*(r-l0) + 0.5*K*r12;
+}
+
 //O(N^2) calculation of forces (w/o cell list)
 //TODO: this could be sped up by not double-counting
 std::vector<arma::vec> System::get_forces() {
@@ -666,6 +682,9 @@ arma::vec System::get_force(Particle &p1) {
             }
             else if(bonded_potential_type=="fene"){
                 force += get_fene_force(dist, disp, my_K, my_l0, drmax);
+            }
+            else if(bonded_potential_type=="2-12"){
+                force += get_2_12_force(dist, disp, my_K, my_l0, drmax);
             }
             else if (bonded_potential_type=="none"){}
             else{
@@ -716,6 +735,9 @@ arma::vec System::get_force_from(Particle &p1, Particle &p2) {
         }
         else if (bonded_potential_type=="fene"){
             force += get_fene_force(dist, disp, K, l0, drmax);
+        }
+        else if (bonded_potential_type=="2-12"){
+            force += get_2_12_force(dist, disp, K, l0, drmax);
         }
         else if (bonded_potential_type=="none"){}
         else{
@@ -831,6 +853,14 @@ arma::vec System::get_fene_force(double r, arma::vec rvec, double KK, double ll0
 
     if(r<=ll0-dr || r>=ll0+dr) return big_force;
     else return -KK*(r-ll0)/(1-((r-ll0)/dr)*((r-ll0)/dr))*rvec/r;
+}
+
+arma::vec System::get_2_12_force(double r, arma::vec rvec, double KK, double ll0, double dr) {
+
+    double r2 = (r-ll0)*(r-ll0)/(dr*dr);
+    double r4 = r2*r2;
+    double r8 = r4*r4;
+    return -KK*(r-ll0)*rvec/r - 12*KK*(r-ll0)*r8*r2*rvec/r/dr;
 }
 
 double System::minimize_energy(double tol) {

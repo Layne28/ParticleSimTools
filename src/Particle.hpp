@@ -19,6 +19,8 @@ public:
     arma::vec pos;
     arma::vec old_pos;
     arma::vec vel;
+    arma::vec active_force;
+    arma::vec conservative_force;
 
     //If the particle is part of a network
     int is_node;

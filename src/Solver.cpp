@@ -64,12 +64,18 @@ void Solver::update(System &theSys, double deet, int level)
 {
     //Get conservative forces
     std::vector<arma::vec> potential_forces = theSys.get_forces();
+    for(int i=0; i<theSys.N; i++){
+        theSys.particles[i].conservative_force = potential_forces[i];
+    }
 
     //Get AOUP forces
     std::vector<arma::vec> aoup_forces = get_aoup_forces(theSys);
 
     //Get active noise forces
     std::vector<arma::vec> active_forces = get_active_noise_forces(theSys, *anGen);
+    for(int i=0; i<theSys.N; i++){
+        theSys.particles[i].active_force = active_forces[i];
+    }
 
     //Get thermal forces
     std::vector<arma::vec> thermal_forces = get_thermal_forces(theSys, deet);

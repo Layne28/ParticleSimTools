@@ -104,6 +104,7 @@ public:
     double get_wca_potential(double r, double sig, double eps);
     double get_harmonic_potential(double r, double KK, double ll0);
     double get_fene_potential(double r, double KK, double ll0, double dr);
+    double get_2_12_potential(double r, double KK, double ll0, double dr);
     std::vector<arma::vec> get_forces();
     std::vector<arma::vec> get_forces_cell_list();
     arma::vec get_force(Particle &p1);
@@ -113,6 +114,7 @@ public:
     arma::vec get_wca_force(double r, arma::vec rvec, double sig, double eps);
     arma::vec get_harmonic_force(double r, arma::vec rvec, double K, double l0);
     arma::vec get_fene_force(double r, arma::vec rvec, double K, double l0, double dr);
+    arma::vec get_2_12_force(double r, arma::vec rvec, double K, double l0, double dr);
     double minimize_energy(double tol=1e-6);
     arma::vec get_disp_vec(Particle &p1, Particle &p2);
     double get_dist(Particle &p1, Particle &p2);
