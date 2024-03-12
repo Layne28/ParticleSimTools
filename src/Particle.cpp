@@ -10,6 +10,7 @@ Particle::Particle(int dim, int is_a_node, int is_an_aoup, double my_aoup_D0, do
     old_pos.zeros(dim);
     vel.zeros(dim);
     active_force.zeros(dim);
+    active_div = 0;
     conservative_force.zeros(dim);
     id = Particle::counter;
     Particle::counter++;
@@ -29,6 +30,7 @@ Particle::Particle(int dim, int is_a_node) {
     old_pos.zeros(dim);
     vel.zeros(dim);
     active_force.zeros(dim);
+    active_div = 0;
     conservative_force.zeros(dim);
     id = Particle::counter;
     Particle::counter++;
@@ -48,6 +50,7 @@ Particle::Particle(int dim) {
     old_pos.zeros(dim);
     vel.zeros(dim);
     active_force.zeros(dim);
+    active_div = 0;
     conservative_force.zeros(dim);
     id = Particle::counter;
     Particle::counter++;

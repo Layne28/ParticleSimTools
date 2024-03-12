@@ -73,8 +73,10 @@ void Solver::update(System &theSys, double deet, int level)
 
     //Get active noise forces
     std::vector<arma::vec> active_forces = get_active_noise_forces(theSys, *anGen);
+    std::vector<double> active_div = get_active_noise_divergence(theSys, *anGen);
     for(int i=0; i<theSys.N; i++){
         theSys.particles[i].active_force = active_forces[i];
+        theSys.particles[i].active_div = active_div[i];
     }
 
     //Get thermal forces
@@ -454,6 +456,65 @@ std::vector<arma::vec> Solver::get_active_noise_forces(System &theSys, Generator
     if(do_subtract_com==1) active_forces = get_subtracted_com_forces(theSys, active_forces);
 
     return active_forces;
+}
+
+std::vector<double> Solver::get_active_noise_divergence(System &theSys, Generator &gen)
+{
+    std::vector<double> active_force_div(theSys.N, 0.0);
+
+    //if active velocity is zero, don't bother doing calculation
+    if (va<1e-10) {
+        return active_force_div;
+    }
+
+    //Compute real-space noise
+    arma::field<arma::cx_vec> xi = gen.get_xi_r(1);
+    
+    //Assign active force divergence to each particle
+    //based on location in noise grid
+    //TODO: write tests for this
+    for(int i=0; i<theSys.N; i++)
+    {
+        arma::vec pos = theSys.particles[i].pos;
+        std::vector<int> indices(theSys.dim, 0);
+        for(int k=0; k<theSys.dim; k++){
+            indices[k] = int((pos(k)+0.5*theSys.edges[k])/gen.spacing[k]);
+        }
+        if(theSys.dim==1){
+            double fxp = xi((indices[0]+1)%gen.nx)(0).real();
+            double fxm = xi((indices[0]-1+gen.nx)%gen.nx)(0).real();
+            double divx = (fxp-fxm)/(2*gen.spacing[0]);
+            active_force_div[i] = divx;
+        }
+        else if(theSys.dim==2){
+            double fxp = xi((indices[0]+1)%gen.nx, indices[1])(0).real();
+            double fxm = xi((indices[0]-1+gen.nx)%gen.nx, indices[1])(0).real();
+            double divx = (fxp-fxm)/(2*gen.spacing[0]);
+
+            double fyp = xi(indices[0], (indices[1]+1)%gen.ny)(1).real();
+            double fym = xi(indices[0], (indices[1]-1+gen.ny)%gen.ny)(1).real();
+            double divy = (fyp-fym)/(2*gen.spacing[1]);
+
+            active_force_div[i] = divx + divy;
+        }
+        else{
+            double fxp = xi((indices[0]+1)%gen.nx, indices[1], indices[2])(0).real();
+            double fxm = xi((indices[0]-1+gen.nx)%gen.nx, indices[1], indices[2])(0).real();
+            double divx = (fxp-fxm)/(2*gen.spacing[0]);
+
+            double fyp = xi(indices[0], (indices[1]+1)%gen.ny, indices[2])(1).real();
+            double fym = xi(indices[0], (indices[1]-1+gen.ny)%gen.ny, indices[2])(1).real();
+            double divy = (fyp-fym)/(2*gen.spacing[1]);
+
+            double fzp = xi(indices[0], indices[1], (indices[2]+1)%gen.nz)(2).real();
+            double fzm = xi(indices[0], indices[1], (indices[2]-1+gen.nz)%gen.nz)(2).real();
+            double divz = (fzp-fzm)/(2*gen.spacing[2]);
+
+            active_force_div[i] = divx + divy + divz;
+        }
+    }
+
+    return active_force_div;
 }
 
 std::vector<arma::vec> Solver::get_subtracted_com_forces(System &theSys, std::vector<arma::vec> forces){

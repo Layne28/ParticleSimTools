@@ -58,6 +58,7 @@ public:
 
     //active noise methods
     std::vector<arma::vec> get_active_noise_forces(System &theSys, Generator &gen);
+    std::vector<double> get_active_noise_divergence(System &theSys, Generator &gen);
     std::unique_ptr<Generator> anGen; //active noise generator
     double interpolate_1d(double ell, double f1, double f2);
     double interpolate_2d(double ell_x, double ell_y, double f11, double f12, double f21, double f22);

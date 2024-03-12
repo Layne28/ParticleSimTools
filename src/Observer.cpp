@@ -46,6 +46,7 @@ void Observer::open_h5md(System &theSys, std::string subdir)
     Group velocity = file.createGroup("/particles/all/velocity");
     Group conservative_force = file.createGroup("/particles/all/conservative_force");
     Group active_force = file.createGroup("/particles/all/active_force");
+    Group active_div = file.createGroup("/particles/all/active_divergence");
     Group image = file.createGroup("/particles/all/image");
 
     //Sugroups of "connectivity"
@@ -122,6 +123,7 @@ void Observer::dump_h5md(System &theSys, std::string subdir)
         std::vector<std::vector<std::vector<double>>> all_vel(1, std::vector<std::vector<double>>(theSys.N, std::vector<double>(3,0.0)));
         std::vector<std::vector<std::vector<double>>> all_conservative_force(1, std::vector<std::vector<double>>(theSys.N, std::vector<double>(3,0.0)));
         std::vector<std::vector<std::vector<double>>> all_active_force(1, std::vector<std::vector<double>>(theSys.N, std::vector<double>(3,0.0)));
+        std::vector<std::vector<double>> all_active_div(1, std::vector<double>(theSys.N, 0.0));
         std::vector<std::vector<std::vector<int>>> all_image(1, std::vector<std::vector<int>>(theSys.N, std::vector<int>(3,0)));
 
         //HDF5 doesn't seem to like variable-length time series data.
@@ -131,10 +133,13 @@ void Observer::dump_h5md(System &theSys, std::string subdir)
         std::vector<std::vector<std::vector<int>>> all_bonds(1, std::vector<std::vector<int>>(nbonds, std::vector<int>(2,0)));
 
         DataSpace part_val_space = DataSpace({1,theSys.N,3},{DataSpace::UNLIMITED, theSys.N,3});
+        DataSpace part_single_val_space = DataSpace({1,theSys.N},{DataSpace::UNLIMITED, theSys.N});
         DataSpace part_t_space = DataSpace({1},{DataSpace::UNLIMITED});
         DataSpace part_bond_space = DataSpace({1,nbonds,2},{DataSpace::UNLIMITED, nbonds,2});
         DataSetCreateProps props_val;
         props_val.add(Chunking(std::vector<hsize_t>{1,theSys.N,3}));
+        DataSetCreateProps props_single_val;
+        props_single_val.add(Chunking(std::vector<hsize_t>{1,theSys.N}));
         DataSetCreateProps props_time;
         props_time.add(Chunking(std::vector<hsize_t>{1}));
         DataSetCreateProps props_bond;
@@ -149,6 +154,7 @@ void Observer::dump_h5md(System &theSys, std::string subdir)
                 all_active_force[0][i][j] = theSys.particles[i].active_force(j);
                 all_image[0][i][j] = theSys.image[i][j];
             }
+            all_active_div[0][i] = theSys.particles[i].active_div;
         }
 
         //Get bonds
@@ -300,6 +306,42 @@ void Observer::dump_h5md(System &theSys, std::string subdir)
             value_dim[0] += 1;
             value.resize(value_dim);
             value.select({value_dim_old[0],0,0},{1,theSys.N,3}).write(all_active_force);
+        }
+
+        //Update active divergence
+        if (!file.exist("/particles/all/active_divergence/step")) {
+            //std::cout << "creating active_force data" << std::endl;
+            DataSet step = file.createDataSet<int>("/particles/all/active_divergence/step", part_t_space, props_time);
+            step.write(theSys.time);
+            DataSet time = file.createDataSet<double>("/particles/all/active_divergence/time", part_t_space, props_time);
+            time.write(theSys.time*theSys.dt);
+            DataSet value = file.createDataSet<double>("/particles/all/active_divergence/value", part_single_val_space, props_single_val);
+            value.select({0,0},{1,theSys.N}).write(all_active_div);
+        }
+        else {
+            //Update step
+            DataSet step = file.getDataSet("/particles/all/active_divergence/step");
+            std::vector<long unsigned int> step_dim = step.getDimensions();
+            std::vector<long unsigned int> step_dim_old = step_dim;
+            step_dim[0] += 1;
+            step.resize(step_dim);
+            step.select(step_dim_old,{1}).write(theSys.time);
+
+            //Update time
+            DataSet time = file.getDataSet("/particles/all/active_divergence/time");
+            std::vector<long unsigned int> time_dim = time.getDimensions();
+            std::vector<long unsigned int> time_dim_old = time_dim;
+            time_dim[0] += 1;
+            time.resize(time_dim);
+            time.select(time_dim_old,{1}).write(theSys.time*theSys.dt);
+
+            //Update active_div values
+            DataSet value = file.getDataSet("/particles/all/active_divergence/value");
+            std::vector<long unsigned int> value_dim = value.getDimensions();
+            std::vector<long unsigned int> value_dim_old = value_dim;
+            value_dim[0] += 1;
+            value.resize(value_dim);
+            value.select({value_dim_old[0],0},{1,theSys.N}).write(all_active_div);
         }
 
         //Update image
