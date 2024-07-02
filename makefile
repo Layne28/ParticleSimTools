@@ -30,7 +30,7 @@ CXX := g++
 SHELL = /bin/sh
 
 # Flags to pass to the compiler; per the reccomendations of the GNU Scientific Library
-CXXFLAGS:= -std=c++17 -Wextra -pedantic -Wall -W -Wmissing-declarations -Wuninitialized -Wshadow -Wpointer-arith -Wcast-align -Wwrite-strings -fshort-enums -fno-common -m64 -fopenmp -I$(HOME)/.local/include
+CXXFLAGS:= -std=c++17 -Wextra -pedantic -Wall -W -Wmissing-declarations -Wuninitialized -Wshadow -Wpointer-arith -Wcast-align -Wwrite-strings -fshort-enums -fno-common -m64 -fopenmp -fPIE -I$(HOME)/.local/include -I/usr/include/hdf5/serial
 
 # Compiler flags controling optimization levels. Use -O3 for full optimization,
 # but make sure your results are consistent
@@ -40,7 +40,7 @@ OPTFLAGS:=$(PROFILE) -O2 -g #Might try changing to O3 to increase speed
 
 # Flags to pass to the linker; -lm links in the standard c math library
 #LDFLAGS:= -fopenmp -lfftw3 -lm -lgsl -lgslcblas -llapack -lblas -larmadillo -lstdc++fs $(PROFILE) -L$(HOME)/.local/lib 
-LDFLAGS:= -lm -lgsl -lgslcblas -lopenblas -larmadillo -lstdc++fs -langen -lfftw3 -lhdf5 -lhdf5_cpp $(PROFILE) -L$(HOME)/.local/lib 
+LDFLAGS:= -Wl,--no-as-needed -lm -lgsl -lgslcblas -llapack -lblas -larmadillo -lstdc++fs -langen -lfftw3 -lhdf5 -lhdf5_cpp $(PROFILE) -L$(HOME)/.local/lib -L/usr/lib/x86_64-linux-gnu/hdf5/serial -L/usr/lib/x86_64-linux-gnu/ 
 
 LDLIBFLAGS:= -lm -lgsl -lgslcblas -lopenblas -larmadillo -lstdc++fs -langen -Wl,--no-as-needed -lhdf5 -lhdf5_cpp $(PROFILE) -L$(HOME)/.local/lib 
 

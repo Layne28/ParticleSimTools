@@ -30,6 +30,7 @@ public:
     int dim;    //no. of spatial dimensions
     double dt;  //timestep
 
+    //int is_single_particle = 0;
     int is_network = 0;     //Whether particles are connected to other particles by springs
     int can_bonds_break = 0; //Whether network connectivity can change
     int **bond_array; //Record connectivity of network
@@ -40,6 +41,7 @@ public:
     double rcut; //cutoff distance for pair potential
     double sigma;
     double epsilon;
+    double ubarrier; //barrier height for double-well potential
     double l0; //spring rest length
     double K; //spring constant
     double aoup_D0; //aoup diffusion constant
@@ -47,9 +49,10 @@ public:
     double drmax;
     std::string bonded_potential_type = "harmonic";
     std::string nonbonded_potential_type = "none";
+    std::string external_potential_type = "none";
     std::string particle_protocol;
     std::string spring_protocol;
-
+    
     int time; //No. of timesteps taken (can be reset)
 
     std::vector<Particle> particles;     //all the particles in the system
@@ -96,6 +99,7 @@ public:
     std::vector<std::vector<int>> get_connectivity();
     arma::vec get_com();
     double get_energy();
+    double get_external_energy(Particle &p1);
     double get_energy_between(Particle &p1, Particle &p2);
     double get_bonded_energy(Particle &p1, Particle &p2);
     double get_energy_cell_list();
@@ -108,6 +112,7 @@ public:
     std::vector<arma::vec> get_forces();
     std::vector<arma::vec> get_forces_cell_list();
     arma::vec get_force(Particle &p1);
+    arma::vec get_external_force(Particle &p1);
     arma::vec get_force_from(Particle &p1, Particle &p2);
     arma::vec get_force_neighbor_grid(Particle &p);
     arma::vec get_lj_force(double r, arma::vec rvec, double sig, double eps);

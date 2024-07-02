@@ -124,10 +124,13 @@ void System::do_paramdict_assign(ParamDict &theParams) {
     if(theParams.is_key("phi")) phi = std::stod(theParams.get_value("phi"));
     if(theParams.is_key("dt")) dt = std::stod(theParams.get_value("dt"));
     if(theParams.is_key("particle_protocol")) particle_protocol = theParams.get_value("particle_protocol");
+    //if(theParams.is_key("is_single_particle")) is_single_particle = std::stoi(theParams.get_value("is_single_particle"));
     if(theParams.is_key("nonbonded_potential_type")) nonbonded_potential_type = theParams.get_value("nonbonded_potential_type");
-    if(theParams.is_key("bonded_potential_type")) bonded_potential_type = theParams.get_value("bonded_potential_type");
+    if(theParams.is_key("bonded_potential_type")) bonded_potential_type = theParams.get_value("external_potential_type");
+    if(theParams.is_key("external_potential_type")) external_potential_type = theParams.get_value("nonbonded_potential_type");
     if(theParams.is_key("epsilon")) epsilon = std::stod(theParams.get_value("epsilon"));
     if(theParams.is_key("sigma")) sigma = std::stod(theParams.get_value("sigma"));
+    if(theParams.is_key("ubarrier")) ubarrier = std::stod(theParams.get_value("ubarrier"));
     if(theParams.is_key("rcut")) rcut = std::stod(theParams.get_value("rcut"));
     if(theParams.is_key("k0_bond")) k0_bond = std::stod(theParams.get_value("k0_bond"));
     if(theParams.is_key("eps_bond")) eps_bond = std::stod(theParams.get_value("eps_bond"));
@@ -464,17 +467,25 @@ void System::set_obs(Observer &anObs) {
 }
 
 double System::get_energy() {
-    if (do_cell_list==1) return get_energy_cell_list();
-    else if (do_neighbor_grid==1) return get_energy_neighbor_grid();
+
+    double pair_energy = 0.0;
+    double external_energy = 0.0;
+
+    if (do_cell_list==1) pair_energy = get_energy_cell_list();
+    else if (do_neighbor_grid==1) pair_energy =  get_energy_neighbor_grid();
     else{
-        double energy = 0;
         for (int i=0; i<N-1; i++) {
             for (int j=i+1; j<N; j++) {
-                energy += get_energy_between(particles[i], particles[j]);
+                pair_energy += get_energy_between(particles[i], particles[j]);
             }
         }
-        return energy;
     }
+
+    for(int i=0; i<N; i++){
+        external_energy += get_external_energy(particles[i]);
+    }
+
+    return pair_energy + external_energy;
 }
 
 double System::get_energy_between(Particle &p1, Particle &p2) {
@@ -515,6 +526,18 @@ double System::get_energy_between(Particle &p1, Particle &p2) {
     }
 
     return energy;
+}
+
+double System::get_external_energy(Particle &p1) {
+    if (external_potential_type=="double_well"){
+        double x = p1.pos(0);
+        double y = p1.pos(1);
+        double energy = ubarrier*((x*x-1)*(x*x-1) + y*y);
+        return energy;
+    }
+    else{
+        return 0;
+    }
 }
 
 double System::get_bonded_energy(Particle &p1, Particle &p2) {
@@ -642,18 +665,28 @@ double System::get_2_12_potential(double r, double K, double l0, double dr) {
 //O(N^2) calculation of forces (w/o cell list)
 //TODO: this could be sped up by not double-counting
 std::vector<arma::vec> System::get_forces() {
+
+    std::vector<arma::vec> pair_forces(N);
+    std::vector<arma::vec> external_forces(N);
+    std::vector<arma::vec> total_forces(N);
     
-    if(do_cell_list==1) return get_forces_cell_list();
+    if(do_cell_list==1) pair_forces = get_forces_cell_list();
     else{
         std::vector<arma::vec> forces(N);
         for(int i=0; i<N; i++) {
             arma::vec force(dim);
             if(do_neighbor_grid==1) force = get_force_neighbor_grid(particles[i]);
             else force = get_force(particles[i]);
-            forces[i] = force;
+            pair_forces[i] = force;
         }
-        return forces;
     }
+
+    for(int i=0; i<N; i++){
+        external_forces[i] = get_external_force(particles[i]);
+        total_forces[i] = pair_forces[i] + external_forces[i];
+    }
+
+    return total_forces;
 }
 
 
@@ -759,6 +792,22 @@ arma::vec System::get_force_from(Particle &p1, Particle &p2) {
         }
     }
     return force;
+}
+
+arma::vec System::get_external_force(Particle &p1) {
+
+    arma::vec force(dim, arma::fill::zeros);
+
+    if (external_potential_type=="double_well"){
+        double x = p1.pos(0);
+        double y = p1.pos(1);
+        force(0) = -ubarrier*(4*x*(x*x-1));
+        force(1) = -ubarrier*2*y;
+        return force;
+    }
+    else{
+        return force;
+    }
 }
 
 //Force with neighbor grid

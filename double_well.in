@@ -1,0 +1,33 @@
+#System
+dim = 2
+phi = 0.0
+is_p_x = 0
+is_p_y = 0
+particle_protocol = zeros
+#is_single_particle = 1
+do_cell_list = 0
+external_potential_type = double_well
+
+#Double-well parameters
+ubarrier = 5.0
+
+kT = 0.0
+is_network = 0
+is_aoup = 0
+
+#Solver
+dt = 0.001
+gamma = 1.0
+va = 0.000000
+do_subtract_com = 0
+
+#Observer
+output_dir = ./test_single_particle
+particles_freq = 10
+thermo_freq = 10
+
+#LabBench
+experiment = standard
+equil_steps = 0
+production_steps = 1000
+info_freq = 10
