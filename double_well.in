@@ -11,7 +11,7 @@ external_potential_type = double_well
 #Double-well parameters
 ubarrier = 5.0
 
-kT = 0.0
+kT = 1.0
 is_network = 0
 is_aoup = 0
 
@@ -29,5 +29,5 @@ thermo_freq = 10
 #LabBench
 experiment = standard
 equil_steps = 0
-production_steps = 1000
+production_steps = 100000
 info_freq = 10

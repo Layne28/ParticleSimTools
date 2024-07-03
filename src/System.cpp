@@ -126,8 +126,8 @@ void System::do_paramdict_assign(ParamDict &theParams) {
     if(theParams.is_key("particle_protocol")) particle_protocol = theParams.get_value("particle_protocol");
     //if(theParams.is_key("is_single_particle")) is_single_particle = std::stoi(theParams.get_value("is_single_particle"));
     if(theParams.is_key("nonbonded_potential_type")) nonbonded_potential_type = theParams.get_value("nonbonded_potential_type");
-    if(theParams.is_key("bonded_potential_type")) bonded_potential_type = theParams.get_value("external_potential_type");
-    if(theParams.is_key("external_potential_type")) external_potential_type = theParams.get_value("nonbonded_potential_type");
+    if(theParams.is_key("bonded_potential_type")) bonded_potential_type = theParams.get_value("bonded_potential_type");
+    if(theParams.is_key("external_potential_type")) external_potential_type = theParams.get_value("external_potential_type");
     if(theParams.is_key("epsilon")) epsilon = std::stod(theParams.get_value("epsilon"));
     if(theParams.is_key("sigma")) sigma = std::stod(theParams.get_value("sigma"));
     if(theParams.is_key("ubarrier")) ubarrier = std::stod(theParams.get_value("ubarrier"));
@@ -681,6 +681,7 @@ std::vector<arma::vec> System::get_forces() {
         }
     }
 
+    
     for(int i=0; i<N; i++){
         external_forces[i] = get_external_force(particles[i]);
         total_forces[i] = pair_forces[i] + external_forces[i];
