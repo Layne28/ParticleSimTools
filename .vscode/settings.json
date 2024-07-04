@@ -71,7 +71,10 @@
         "stop_token": "cpp",
         "cinttypes": "cpp",
         "ranges": "cpp",
-        "span": "cpp"
+        "span": "cpp",
+        "shared_mutex": "cpp",
+        "cfenv": "cpp",
+        "__nullptr": "cpp"
     },
     "C_Cpp.default.compilerPath": "/opt/ohpc/pub/compiler/gcc/7.3.0/bin/g++"
 }
