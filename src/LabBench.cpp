@@ -4,6 +4,7 @@ LabBench::LabBench(ParamDict& theParams, gsl_rng*& theGen) : sys(theParams, theG
 {
 
     params = theParams;
+    rg = theGen;
     sys.set_obs(obs);
 
     if(theParams.is_key("randomization_steps")) randomization_steps = std::stoi(theParams.get_value("randomization_steps"));
@@ -113,7 +114,11 @@ void LabBench::run_standard_experiment()
     this->run(this->production_steps, "/prod", this->obs.particles_freq, this->obs.thermo_freq);
 }
 
-auto LabBench::run_ffs_stage1(int N0, double la)
+/******************************/
+/*** Forward Flux Sampling ****/
+/******************************/
+
+auto LabBench::run_ffs_stage1(int N0, double l0, double la, double lb)
 {
     //This function has to be placed before "run_ffs_experiment"
     //because of the use of auto return type
@@ -132,11 +137,11 @@ auto LabBench::run_ffs_stage1(int N0, double la)
     double time = 0;        //total time to get N0 configs
 
     int was_in_a = 1;       //keep track of whether system was in state A
-                            //in previous configuration
+                            //before crossing l0
 
     //Dynamics loop
     int nsteps = 0;
-    int outfreq = 1000;
+    int outfreq = 100000;
     while (config_counter<N0){
 
         if (nsteps % outfreq == 0){
@@ -148,16 +153,13 @@ auto LabBench::run_ffs_stage1(int N0, double la)
         time += sys.dt;
         nsteps++;
 
-        //TODO: write get_order_parameter
-        //make "op" a member of system
-
-        if (sys.get_order_parameter() < la){
+        if (sys.get_order_parameter() <= la){
             was_in_a = 1;
         }
         //Append configuration and increment counter if 
         //system has crossed lambda_a
-        if (sys.get_order_parameter() >= la && was_in_a==1){
-            std::cout << "particle crossed lambda_a at time " << time << std::endl;
+        if (sys.get_order_parameter() > l0 && was_in_a==1){
+            std::cout << "particle crossed lambda_0 at time " << time << std::endl;
             configs.push_back(sys.particles);
             config_counter++;
             was_in_a = 0;
@@ -165,7 +167,7 @@ auto LabBench::run_ffs_stage1(int N0, double la)
     }
     
 
-    return result {1.0, configs};
+    return result {time, configs};
 }
 
 void LabBench::run_ffs_experiment()
@@ -195,39 +197,92 @@ void LabBench::run_ffs_experiment()
 
     sys.order_parameter = op;
 
+    //Define interfaces
+    //For now, use simplest method: nint evenly spaced
+    //interfaces between la and lb
+    std::vector<double> lambdas(nint, 0.0);
+    for(int i=0; i<nint; i++){
+        lambdas[i] = la + (i+1)*(lb-la)/nint;
+        std::cout << lambdas[i] << std::endl;
+    }
+
+    /*****************************/
     //Stage 1: sampling the A basin
+    /*****************************/
 
     //TODO: reset system to make sure it starts in A basin
-    auto [Tstage1, stage1_configs] = run_ffs_stage1(N0, la);
+    auto [Tstage1, stage1_configs] = run_ffs_stage1(N0, lambdas[0], la, lb);
 
-    std::cout << "Tstage1: " << Tstage1 << std::endl;
+    //Compute flux from A to 0
+    double phi_A0 = N0/Tstage1;
+    std::cout << "Phi_A,0: " << phi_A0 << std::endl;
 
+    /*****************************/
     //Stage 2: crossing interfaces
+    /*****************************/
+
+    std::vector<std::vector<Particle>> stage2_configs_prev = stage1_configs;
+    std::vector<double> transition_probs(nint-1, 0);
+
+    //Loop through interfaces
+    for(int i=1; i<nint; i++){
+
+        std::cout << "transition from lambda_" << (i-1) << " to lambda_" << i << std::endl;
+
+        std::vector<std::vector<Particle>> stage2_configs_curr;
+        int Ni=0; //number of trajectories crossing lambda_(i+1)
+
+        //Launch M_i (=M0 for now) trial trajectories
+        //randomly sampled from the N_i (=N0 for now) stored configurations
+        for(int j=0; j<M0; j++){
+
+            std::cout << "test" << std::endl;
+            int index = gsl_rng_uniform_int(rg, N0);
+            std::cout << index << std::endl;
+            std::vector<Particle> config_curr = stage2_configs_prev[index];
+
+            //Assign system the selected configuration
+            //TODO: if pbc, may also need to store and select
+            //periodic images, update cell list, etc
+            sys.particles = config_curr;
+
+            //Dynamics loop
+            int done = 0;
+            while (done==0){
+                solver.update(sys, sys.dt);
+
+                if (sys.get_order_parameter() <= la){
+                    std::cout << "system returned to state A" << std::endl;
+                    done = 1;
+                }
+                
+                if (sys.get_order_parameter() > lambdas[i]){
+                    std::cout << "particle crossed lambda_" << i << std::endl;
+                    stage2_configs_curr.push_back(sys.particles);
+                    done = 1;
+                    Ni++;
+                }
+            }
+        }
+        transition_probs[i-1] = (1.0*Ni)/M0;
+        stage2_configs_prev = stage2_configs_curr;
+    }
+
+    std::cout << "Transition probabilities:" << std::endl;
+    for(int i=0; i<(nint-1); i++){
+        std::cout << i << "-->" << (i+1) << ": " << transition_probs[i] << std::endl;
+    }
+
+    double kAB = phi_A0;
+    for (int i=0; i<(nint-1); i++){
+        kAB *= transition_probs[i];
+    }
+    std::cout << "Rate constant: " << kAB << std::endl;
+
+
 
 }
 
-    /*
-    std::cout << "Testing grid" << std::endl;
-    
-    std::array<double,2> min = {-0.5*sys.edges[0], -0.5*sys.edges[1]};
-    std::array<double,2> max = {0.5*sys.edges[0], 0.5*sys.edges[1]};
-    std::array<bool,2> per = {true, true};
-    NeighborGrid<Particle, 2> *grid = new NeighborGrid<Particle,2>(min, max, per, 3.5);
-    //grid->update_atom(&sys.particles[0]);
-    //grid->update_atom(&sys.particles[1]);
-    //grid->update_atom(&sys.particles[2]);
-    //auto p = grid->get_neighbor_iterator(&sys.particles[0]);
-    //std::cout << *p << std::endl;
-    Particle p1;
-    p1.pos[0]=0.0;
-    p1.pos[1]=0.0;
-    Particle p2;
-    p2.pos[0] = 1.0;
-    p2.pos[1] = 0.0;
-    grid->update_atom(&p1);
-    grid->update_atom(&p2);
-    for (auto p = grid->get_neighbor_iterator(&p1); !p.isDone(); p++){ 
-        std::cout << *p << std::endl;
-    }
-    std::cout << "passed" << std::endl;
-    */
+/******************************/
+/*** Umbrella Sampling ********/
+/******************************/

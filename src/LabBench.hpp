@@ -44,12 +44,13 @@ public:
     void run(int nstps=-1, std::string subdir="/", int net_freq=-1, int therm_freq=-1, int noisegen_freq=-1);
 
     //ffs functions
-    auto run_ffs_stage1(int N0, double la);
+    auto run_ffs_stage1(int N0, double l0, double la, double lb);
 
     //experiments
     void do_experiment(std::string expt); //TODO: keep this Public, move rest to private
     void run_standard_experiment(); //equilibrate and then observe an unperturbed system
     void run_ffs_experiment();
+
     void run_swollen_experiment();
     void run_compression_experiment();
     void run_shear_experiment();
