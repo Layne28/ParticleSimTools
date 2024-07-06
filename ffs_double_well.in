@@ -9,7 +9,7 @@ do_cell_list = 0
 external_potential_type = double_well
 
 #Double-well parameters
-ubarrier = 12.0
+ubarrier = 14
 
 kT = 1.0
 is_network = 0
@@ -33,9 +33,9 @@ production_steps = 100000
 info_freq = 10
 
 #FFS parameters
-N0 = 5
-M0 = 5
-nint = 5
+N0 = 50
+M0 = 1000
+nint = 50
 la = -0.5
 lb = 0.5
 order_parameter = single_particle_x

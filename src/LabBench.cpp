@@ -220,6 +220,8 @@ void LabBench::run_ffs_experiment()
     /*****************************/
     //Stage 2: crossing interfaces
     /*****************************/
+    
+    //TODO: save configurations of successful trajectories 
 
     std::vector<std::vector<Particle>> stage2_configs_prev = stage1_configs;
     std::vector<double> transition_probs(nint-1, 0);
