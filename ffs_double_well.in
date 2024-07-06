@@ -9,7 +9,7 @@ do_cell_list = 0
 external_potential_type = double_well
 
 #Double-well parameters
-ubarrier = 5.0
+ubarrier = 12.0
 
 kT = 1.0
 is_network = 0
@@ -38,4 +38,4 @@ M0 = 5
 nint = 5
 la = -0.5
 lb = 0.5
-op = single_particle_x
+order_parameter = single_particle_x

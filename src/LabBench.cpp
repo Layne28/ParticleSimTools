@@ -113,10 +113,11 @@ void LabBench::run_standard_experiment()
     this->run(this->production_steps, "/prod", this->obs.particles_freq, this->obs.thermo_freq);
 }
 
-auto LabBench::run_ffs_stage1(int N0, double la, std::string op)
+auto LabBench::run_ffs_stage1(int N0, double la)
 {
     //This function has to be placed before "run_ffs_experiment"
     //because of the use of auto return type
+    //TODO: handle case where system reaches state B (rare but possible)
 
     //Define struct for output of stage 1
     struct result {
@@ -124,8 +125,45 @@ auto LabBench::run_ffs_stage1(int N0, double la, std::string op)
         std::vector<std::vector<Particle>> configs; //vector of configurations crossing la
     };
 
-    std::vector<std::vector<Particle>> configs;
-    configs.push_back(sys.particles);
+    //Define variables
+    std::vector<std::vector<Particle>> configs; //vector of configurations
+
+    int config_counter = 0; //no. of configs reaching la (out of N0)
+    double time = 0;        //total time to get N0 configs
+
+    int was_in_a = 1;       //keep track of whether system was in state A
+                            //in previous configuration
+
+    //Dynamics loop
+    int nsteps = 0;
+    int outfreq = 1000;
+    while (config_counter<N0){
+
+        if (nsteps % outfreq == 0){
+            std::cout << "time: " << time << " timesteps: " << nsteps << std::endl;
+        }
+
+        //Run one step
+        solver.update(sys, sys.dt);
+        time += sys.dt;
+        nsteps++;
+
+        //TODO: write get_order_parameter
+        //make "op" a member of system
+
+        if (sys.get_order_parameter() < la){
+            was_in_a = 1;
+        }
+        //Append configuration and increment counter if 
+        //system has crossed lambda_a
+        if (sys.get_order_parameter() >= la && was_in_a==1){
+            std::cout << "particle crossed lambda_a at time " << time << std::endl;
+            configs.push_back(sys.particles);
+            config_counter++;
+            was_in_a = 0;
+        }
+    }
+    
 
     return result {1.0, configs};
 }
@@ -153,12 +191,14 @@ void LabBench::run_ffs_experiment()
     if(params.is_key("nint")) nint = std::stoi(params.get_value("nint"));
     if(params.is_key("la")) la = std::stod(params.get_value("la"));
     if(params.is_key("lb")) lb = std::stod(params.get_value("lb"));
-    if(params.is_key("op")) op = params.get_value("op");
+    if(params.is_key("order_parameter")) op = params.get_value("order_parameter");
+
+    sys.order_parameter = op;
 
     //Stage 1: sampling the A basin
 
     //TODO: reset system to make sure it starts in A basin
-    auto [Tstage1, stage1_configs] = run_ffs_stage1(N0, la, op);
+    auto [Tstage1, stage1_configs] = run_ffs_stage1(N0, la);
 
     std::cout << "Tstage1: " << Tstage1 << std::endl;
 

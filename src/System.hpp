@@ -74,6 +74,9 @@ public:
     std::vector<int> cellndx;    //which cell each particle belongs to
     std::vector<std::vector<int>> cellneigh; //each cell keeps list of its neighboring cells
 
+    //Variables for specific experiments
+    std::string order_parameter; //order parameter for ffs, umbrella sampling, ...
+                                 //TODO: add support for multiple order parameters
 
     NeighborGrid<Particle, 2> *grid;
 
@@ -130,6 +133,9 @@ public:
     void create_cell_list();
     void fill_cellneigh();
     void update_neighborgrid();
+
+    //Methods for specific experiments
+    double get_order_parameter();
 };
 
 #endif

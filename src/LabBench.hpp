@@ -44,7 +44,7 @@ public:
     void run(int nstps=-1, std::string subdir="/", int net_freq=-1, int therm_freq=-1, int noisegen_freq=-1);
 
     //ffs functions
-    auto run_ffs_stage1(int N0, double la, std::string op);
+    auto run_ffs_stage1(int N0, double la);
 
     //experiments
     void do_experiment(std::string expt); //TODO: keep this Public, move rest to private

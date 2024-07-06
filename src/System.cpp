@@ -1065,3 +1065,14 @@ void System::fill_cellneigh() {
       }
    }
 }
+
+double System::get_order_parameter() {
+    
+    if (order_parameter=="single_particle_x") {
+        return particles[0].pos(0);
+    }
+    else{
+        std::cout << "Error: order parameter not yet implemented!" << std::endl;
+        exit(-1);
+    }
+}
