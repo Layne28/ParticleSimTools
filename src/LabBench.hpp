@@ -15,6 +15,7 @@
 #include "Solver.hpp"
 #include "Observer.hpp"
 #include "ParamDict.hpp"
+#include "boost/graph/adjacency_list.hpp"
 
 class LabBench
 {

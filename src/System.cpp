@@ -232,6 +232,13 @@ void System::do_particle_init() {
             particles.push_back(p);
         }
     }
+    if (particle_protocol=="single_particle_double_well") {
+        for (int i=0; i<N; i++) {
+            Particle p(dim, is_network);
+            p.pos[0] = -1.0;
+            particles.push_back(p);
+        }
+    }
     else if (particle_protocol=="random") {
         std::cout << "Doing random initialization..." << std::endl;
         //Assign particles random positions

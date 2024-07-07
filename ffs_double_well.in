@@ -3,7 +3,7 @@ dim = 2
 phi = 0.0
 is_p_x = 0
 is_p_y = 0
-particle_protocol = zeros
+particle_protocol = single_particle_double_well
 #is_single_particle = 1
 do_cell_list = 0
 external_potential_type = double_well
@@ -34,7 +34,7 @@ info_freq = 10
 
 #FFS parameters
 N0 = 50
-M0 = 1000
+M0 = 100
 nint = 50
 la = -0.5
 lb = 0.5

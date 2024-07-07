@@ -187,6 +187,7 @@ void LabBench::run_ffs_experiment()
     double la = 0.0;
     double lb = 1.0;
     std::string op = "single_particle_x";
+    int savefreq = 10;
 
     if(params.is_key("N0")) N0 = std::stoi(params.get_value("N0"));
     if(params.is_key("M0")) M0 = std::stoi(params.get_value("M0"));
@@ -222,8 +223,19 @@ void LabBench::run_ffs_experiment()
     /*****************************/
     
     //TODO: save configurations of successful trajectories 
+    //Create "tree" structure to save branched trajectories
+    struct segment
+    {
+        std::vector<std::vector<Particle>> data; //Trajectory
+        int parent;                              //Index of parent trajectory
+        int depth;                               //Which interface
+    };
 
-    std::vector<std::vector<Particle>> stage2_configs_prev = stage1_configs;
+    //Create vector of vectors of trajectory segments 
+    //(for each interface and each successful trial)
+    std::vector<std::vector<segment>> trial_trajs;
+
+    //Vector to store transition probabilities at each interface
     std::vector<double> transition_probs(nint-1, 0);
 
     //Loop through interfaces
@@ -231,27 +243,45 @@ void LabBench::run_ffs_experiment()
 
         std::cout << "transition from lambda_" << (i-1) << " to lambda_" << i << std::endl;
 
-        std::vector<std::vector<Particle>> stage2_configs_curr;
+        //Hold successful trial trajectories for current interface
+        std::vector<segment> trials_curr;
+
         int Ni=0; //number of trajectories crossing lambda_(i+1)
 
         //Launch M_i (=M0 for now) trial trajectories
         //randomly sampled from the N_i (=N0 for now) stored configurations
         for(int j=0; j<M0; j++){
 
-            std::cout << "test" << std::endl;
+            std::cout << "num to select from: " << N0 << std::endl;
+
             int index = gsl_rng_uniform_int(rg, N0);
             std::cout << index << std::endl;
-            std::vector<Particle> config_curr = stage2_configs_prev[index];
-
+            std::vector<Particle> config_curr;
+            if (i==1){
+                config_curr = stage1_configs[index];
+            }
+            else {
+                config_curr = (trial_trajs[i-2][index].data).back(); //might need to change if we append A->0 segments
+            }
+            
             //Assign system the selected configuration
             //TODO: if pbc, may also need to store and select
             //periodic images, update cell list, etc
             sys.particles = config_curr;
 
+            //Create current trajectory
+            std::vector<std::vector<Particle>> traj_curr;
+            //TODO: might need to change below if we end up 
+            //saving pre-lambda_0 segments
+            if(i==1){
+                traj_curr.push_back(config_curr);
+            }
+
             //Dynamics loop
             int done = 0;
             while (done==0){
-                solver.update(sys, sys.dt);
+                solver.update(sys, sys.dt);         //Advance time
+                traj_curr.push_back(sys.particles); //Append config
 
                 if (sys.get_order_parameter() <= la){
                     std::cout << "system returned to state A" << std::endl;
@@ -260,14 +290,20 @@ void LabBench::run_ffs_experiment()
                 
                 if (sys.get_order_parameter() > lambdas[i]){
                     std::cout << "particle crossed lambda_" << i << std::endl;
-                    stage2_configs_curr.push_back(sys.particles);
                     done = 1;
                     Ni++;
+                    //Save trajectory segment
+                    segment mySeg;
+                    mySeg.data = traj_curr;
+                    mySeg.parent = index;
+                    mySeg.depth = (i-1);
+                    trials_curr.push_back(mySeg);
                 }
             }
         }
+        trial_trajs.push_back(trials_curr);
+        N0 = trials_curr.size();
         transition_probs[i-1] = (1.0*Ni)/M0;
-        stage2_configs_prev = stage2_configs_curr;
     }
 
     std::cout << "Transition probabilities:" << std::endl;
@@ -280,6 +316,10 @@ void LabBench::run_ffs_experiment()
         kAB *= transition_probs[i];
     }
     std::cout << "Rate constant: " << kAB << std::endl;
+
+    int n_successful = (trial_trajs.back()).size();
+
+    std::cout << "No. of successful trajectories: " << n_successful << std::endl;
 
 
 
