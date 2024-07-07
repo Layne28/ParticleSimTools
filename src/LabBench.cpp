@@ -347,6 +347,17 @@ void LabBench::run_ffs_experiment()
     }
     myfile.close();
 
+    //Print rate to file
+    std::ofstream ratefile;
+    ratefile.open(obs.output_dir + "/ffs/rate.txt");
+    ratefile << "Format: (1) rate constant (2) initial flux (3+) transition probabilities" << std::endl;
+    ratefile << kAB << std::endl;
+    ratefile << phi_A0 << std::endl;
+    for(int i=0; i<(nint-1); i++){
+        ratefile << transition_probs[i] << std::endl;
+    }
+    ratefile.close();
+
     //Print transition paths to file
     int nevery = 10;
     for(int i=0; i<n_successful; i++){
