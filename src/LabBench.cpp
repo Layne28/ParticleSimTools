@@ -252,10 +252,10 @@ void LabBench::run_ffs_experiment()
         //randomly sampled from the N_i (=N0 for now) stored configurations
         for(int j=0; j<M0; j++){
 
-            std::cout << "num to select from: " << N0 << std::endl;
+            //std::cout << "num to select from: " << N0 << std::endl;
 
             int index = gsl_rng_uniform_int(rg, N0);
-            std::cout << index << std::endl;
+            //std::cout << index << std::endl;
             std::vector<Particle> config_curr;
             if (i==1){
                 config_curr = stage1_configs[index];
@@ -284,12 +284,13 @@ void LabBench::run_ffs_experiment()
                 traj_curr.push_back(sys.particles); //Append config
 
                 if (sys.get_order_parameter() <= la){
-                    std::cout << "system returned to state A" << std::endl;
+                    //std::cout << "system returned to state A" << std::endl;
                     done = 1;
                 }
                 
                 if (sys.get_order_parameter() > lambdas[i]){
                     std::cout << "particle crossed lambda_" << i << std::endl;
+                    std::cout << "(value " << sys.get_order_parameter() << ")" << std::endl;
                     done = 1;
                     Ni++;
                     //Save trajectory segment
@@ -321,8 +322,44 @@ void LabBench::run_ffs_experiment()
 
     std::cout << "No. of successful trajectories: " << n_successful << std::endl;
 
+    //Gather transition paths
+    std::cout << "Gathering transition paths..." << std::endl;
+    std::vector<std::vector<std::vector<Particle>>> transition_paths;
+    for(int i=0; i<n_successful; i++){
+        transition_paths.push_back((trial_trajs.back())[i].data);
+        int curr_index = i;
+        for(int j=nint-2; j>0; j--){
+            int myindex = trial_trajs[j][curr_index].parent;
+            curr_index = myindex;
+            //std::cout << j << " " << myindex << std::endl;
+            transition_paths[i].insert((transition_paths[i]).begin(), (trial_trajs[j-1][myindex]).data.begin(), (trial_trajs[j-1][myindex]).data.end());
+        }
+    }
 
+    //Print interface info to file
+    std::ofstream myfile;
+    myfile.open(obs.output_dir + "/ffs/interfaces.txt");
+    myfile << "order parameter: " << sys.order_parameter << std::endl;
+    myfile << "no. of interfaces: " << nint << std::endl;
+    myfile << la << std::endl;
+    for(int i=0; i<lambdas.size(); i++){
+        myfile << lambdas[i] << std::endl;
+    }
+    myfile.close();
 
+    //Print transition paths to file
+    int nevery = 10;
+    for(int i=0; i<n_successful; i++){
+        if (i % nevery==0){
+            std::string subdir = "ffs/path=" + std::to_string(i);
+            obs.open_h5md(sys, subdir);
+            for(int j=0; j<transition_paths[i].size(); j++){
+                sys.particles = transition_paths[i][j];
+                sys.time = j*sys.dt;
+                obs.dump_h5md(sys, subdir);
+            }
+        }        
+    }
 }
 
 /******************************/
